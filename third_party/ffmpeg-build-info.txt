@@ -1,0 +1,29 @@
+FFmpeg build provenance
+
+Project: BtbN/FFmpeg-Builds
+Release tag: latest
+Release asset: ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip
+GitHub release asset id: 682570576
+Asset publication date: 2026-10-27
+Retrieved and verified: 2026-10-28
+Asset SHA-256: eb01b7296e09a8dfeab550bfccd54a6a4565b5601c0b0eb6f8ca3924ccf61daa
+
+Observed executable version:
+ffmpeg version n9.0.2-36-g6882969ce9-20261027
+
+Observed compiler:
+gcc 16.2.0 (crosstool-NG 1.29.0.7_b1a94f6)
+
+Observed FFmpeg license from `ffmpeg.exe -L`: GNU Lesser General Public License
+version 3 or later (LGPL-3.0-or-later). This is a shared build. The original
+LICENSE.txt from the verified archive is distributed as
+third_party/ffmpeg/LICENSE-LGPL-3.0.txt.
+
+Observed configuration from `ffmpeg.exe -buildconf`:
+--prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32 --enable-version3 --disable-debug --enable-shared --disable-static --disable-w32threads --enable-pthreads --enable-iconv --enable-zlib --enable-libxml2 --enable-libvmaf --enable-fontconfig --enable-libharfbuzz --enable-libfreetype --enable-libfribidi --enable-lcms2 --enable-vulkan --enable-libdav1d --enable-libvorbis --enable-librav1e --enable-librsvg --disable-libxcb --disable-xlib --disable-libpulse --enable-gmp --enable-lzma --enable-liblcevc-dec --enable-opencl --enable-amf --enable-libaom --disable-avisynth --enable-chromaprint --disable-libdavs2 --disable-libdvdread --disable-libdvdnav --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --disable-frei0r --enable-libgme --enable-libkvazaar --enable-libaribb24 --enable-libaribcaption --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-libplacebo --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-libzmq --enable-lv2 --enable-libvpl --enable-openal --enable-liboapv --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --disable-librubberband --enable-schannel --enable-sdl2 --enable-libsnappy --enable-libsoxr --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --disable-libdrm --enable-vaapi --enable-vapoursynth --disable-libvidstab --enable-libvvenc --disable-whisper --disable-libx264 --disable-libx265 --disable-libxavs2 --disable-libxvid --enable-libzimg --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-libs=-lgomp --extra-ldflags=-pthread --extra-ldexeflags= --cc=x86_64-w64-mingw32-gcc --cxx=x86_64-w64-mingw32-g++ --ar=x86_64-w64-mingw32-gcc-ar --ranlib=x86_64-w64-mingw32-gcc-ranlib --nm=x86_64-w64-mingw32-gcc-nm --extra-version=20261027
+
+The application invokes ffmpeg.exe and ffprobe.exe as separate processes. The
+FFmpeg DLLs are shipped beside them; they are not linked into the .NET app.
+The build configuration records enabled external integrations. Consult their
+upstream license terms for those components in addition to the included FFmpeg
+LGPL license.

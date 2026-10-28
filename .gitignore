@@ -1,0 +1,11 @@
+.tools/
+artifacts/
+**/bin/
+!third_party/ffmpeg/bin/
+!third_party/ffmpeg/bin/**
+**/obj/
+验证照片/
+exiftool-13.59_64/
+exiftool-13.59_64.zip
+*.zip
+!third_party/exiftool/exiftool_files/Licenses_Strawberry_Perl.zip
