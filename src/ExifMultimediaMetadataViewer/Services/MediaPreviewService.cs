@@ -7,6 +7,31 @@ namespace ExifMultimediaMetadataViewer.Services;
 
 public sealed class MediaPreviewService
 {
+    public async Task<(BitmapSource? Image, int? Width, int? Height)> LoadThumbnailAsync(
+        string path,
+        string ffmpegPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            BitmapSource? image;
+            if (MediaAnalyzer.IsVideoFile(path))
+            {
+                var frame = await ExtractVideoFrameAsync(ffmpegPath, path, cancellationToken).ConfigureAwait(false);
+                image = Decode(frame, 280);
+            }
+            else
+            {
+                image = await Task.Run(() => DecodeFile(path, 280), cancellationToken).ConfigureAwait(false);
+            }
+            return (image, image?.PixelWidth, image?.PixelHeight);
+        }
+        catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException or System.ComponentModel.Win32Exception)
+        {
+            return (null, null, null);
+        }
+    }
+
     public async Task<BitmapSource?> LoadAsync(
         MediaAnalysis analysis,
         string exifToolPath,
@@ -19,12 +44,12 @@ public sealed class MediaPreviewService
                 return null;
             var frame = await ExtractVideoFrameAsync(ffmpegPath, analysis.FilePath, cancellationToken)
                 .ConfigureAwait(false);
-            return Decode(frame);
+            return Decode(frame, 1800);
         }
 
         try
         {
-            return await Task.Run(() => DecodeFile(analysis.FilePath), cancellationToken)
+            return await Task.Run(() => DecodeFile(analysis.FilePath, 1800), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException)
@@ -35,7 +60,7 @@ public sealed class MediaPreviewService
             {
                 var bytes = await ExtractExifToolBinaryAsync(
                     exifToolPath, analysis.FilePath, tag, cancellationToken).ConfigureAwait(false);
-                var image = Decode(bytes);
+                var image = Decode(bytes, 1800);
                 if (image is not null)
                     return image;
             }
@@ -43,21 +68,21 @@ public sealed class MediaPreviewService
         }
     }
 
-    private static BitmapSource? DecodeFile(string path)
+    private static BitmapSource? DecodeFile(string path, int decodePixelWidth)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         var bitmap = new BitmapImage();
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-        bitmap.DecodePixelWidth = 1800;
+        bitmap.DecodePixelWidth = decodePixelWidth;
         bitmap.StreamSource = stream;
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
     }
 
-    private static BitmapSource? Decode(byte[]? bytes)
+    private static BitmapSource? Decode(byte[]? bytes, int decodePixelWidth)
     {
         if (bytes is null || bytes.Length == 0)
             return null;
@@ -68,7 +93,7 @@ public sealed class MediaPreviewService
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            bitmap.DecodePixelWidth = 1800;
+            bitmap.DecodePixelWidth = decodePixelWidth;
             bitmap.StreamSource = stream;
             bitmap.EndInit();
             bitmap.Freeze();

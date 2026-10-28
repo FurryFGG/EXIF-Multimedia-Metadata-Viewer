@@ -17,6 +17,7 @@ var sampleFiles = Directory.Exists(sampleDirectory)
     : [];
 
 var failures = new List<string>();
+RunViewportGeometryChecks(failures);
 var analyzer = new MediaAnalyzer();
 var reports = new List<(string Name, MediaAnalysis Analysis)>();
 var sawAudioStream = false;
@@ -203,6 +204,36 @@ Console.WriteLine(failures.Count == 0
     ? $"PASS: {reports.Count} sample files and export/path checks."
     : $"FAIL: {failures.Count} integration check(s).");
 return failures.Count == 0 ? 0 : 1;
+
+static void RunViewportGeometryChecks(List<string> failures)
+{
+    AssertNear(0.2, ViewportGeometry.FitScale(4000, 6000, 2000, 1200, 0), "portrait fit scale", failures);
+    AssertNear(0.2, ViewportGeometry.FitScale(6000, 4000, 2000, 1200, 90), "rotated landscape fit scale", failures);
+    var square = ViewportGeometry.FitScale(2000, 2000, 1200, 800, 0);
+    AssertNear(0.4, square, "square fit scale", failures);
+
+    var zoomed = ViewportGeometry.ZoomPanAt(
+        new ViewportPoint(300, 250), 4000, 3000, 1000, 800, 0.2, 0.4, 0, 0, 0);
+    var before = ViewportGeometry.ViewportToImage(
+        new ViewportPoint(300, 250), 4000, 3000, 1000, 800, 0.2, 0, 0, 0);
+    var after = ViewportGeometry.ViewportToImage(
+        new ViewportPoint(300, 250), 4000, 3000, 1000, 800, 0.4, 0, zoomed.X, zoomed.Y);
+    AssertNear(before.X, after.X, "zoom cursor image X anchor", failures);
+    AssertNear(before.Y, after.Y, "zoom cursor image Y anchor", failures);
+
+    var clamped = ViewportGeometry.ClampPan(10000, -10000, 4000, 3000, 1000, 800, 0.5, 0);
+    AssertNear(500, clamped.X, "horizontal pan bound", failures);
+    AssertNear(-350, clamped.Y, "vertical pan bound", failures);
+    var fitPan = ViewportGeometry.ClampPan(200, -200, 400, 300, 1000, 800, 1, 0);
+    AssertNear(0, fitPan.X, "small image horizontal pan", failures);
+    AssertNear(0, fitPan.Y, "small image vertical pan", failures);
+}
+
+static void AssertNear(double expected, double actual, string name, List<string> failures)
+{
+    if (!double.IsFinite(actual) || Math.Abs(expected - actual) > 1e-6)
+        failures.Add($"{name}: expected {expected}, received {actual}.");
+}
 
 static int CountLeaves(JsonElement element) => element.ValueKind switch
 {

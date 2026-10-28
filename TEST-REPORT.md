@@ -42,3 +42,13 @@ Test date: 2026-10-28
 - Windows 11 was not separately tested.
 - The post-fix application window process is confirmed alive, but photo rendering and displayed EXIF rows remain unverified; screenshot capture timed out during the visual check.
 - ExifTool may recognize a severely truncated file from its header and return generic file fields without a corruption warning. The application reports the parser's result and diagnostics; it does not invent a corruption verdict.
+
+## Phase 2 Verification (2026-10-29)
+
+- Release x64 WPF build: passed with zero warnings and zero errors.
+- Integration test executable: passed the built-in viewport geometry checks for portrait and rotated fitting, square fitting, cursor-anchored zoom, pan clamping, and images smaller than the viewport.
+- Parser corruption check: passed. No external media sample directory was supplied in this run, so camera metadata and photo/video rendering against real samples were not retested.
+- Self-contained `win-x64` publish completed. Inno Setup 6.7.3 produced `artifacts/installer/EXIF-Multimedia-Metadata-Viewer-Setup.exe` (102,737,744 bytes, version 1.1.0).
+- The installed version's process was present at the default per-user install path. A screen capture of the built version could not be obtained: Windows Computer Use window capture timed out on both attempts, and the existing installed instance was left untouched. On-screen rendering and pointer/keyboard interactions therefore remain unverified in this run.
+- Browser thumbnail decode is asynchronous and limited to 280 pixels wide; only realized virtualized thumbnail rows request a decode. Video thumbnails use the bundled FFmpeg first-frame path. Unsupported formats remain identified in the browser and are not reported as metadata-free media.
+- Known limits: video playback/seeking remains out of scope; RAW preview depends on native WIC support or an embedded JPEG exposed by ExifTool. Horizontal mouse-wheel handling, DPI-specific fullscreen behavior, and real media interaction require a successful GUI verification pass.

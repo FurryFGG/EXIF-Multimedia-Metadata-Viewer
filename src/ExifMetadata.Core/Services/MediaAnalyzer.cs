@@ -61,6 +61,7 @@ public sealed class MediaAnalyzer
             FilePath = fullPath,
             FileSize = fileInfo.Length,
             LastWriteTimeUtc = fileInfo.LastWriteTimeUtc,
+            CreationTimeUtc = fileInfo.CreationTimeUtc,
             AnalyzedAtUtc = DateTime.UtcNow,
             ExifTool = exifResult,
             FFprobe = ffprobeResult,
@@ -73,6 +74,8 @@ public sealed class MediaAnalyzer
         var extension = Path.GetExtension(path);
         return ImageExtensions.Contains(extension) || VideoExtensions.Contains(extension);
     }
+
+    public static bool IsImageFile(string path) => ImageExtensions.Contains(Path.GetExtension(path));
 
     public static bool IsVideoFile(string path) => VideoExtensions.Contains(Path.GetExtension(path));
 }

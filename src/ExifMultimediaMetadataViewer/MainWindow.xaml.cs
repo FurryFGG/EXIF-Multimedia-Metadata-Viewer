@@ -1,6 +1,14 @@
 using System.ComponentModel;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Runtime.InteropServices;
+using ExifMultimediaMetadataViewer.Controls;
+using ExifMultimediaMetadataViewer.Services;
 using ExifMultimediaMetadataViewer.ViewModels;
 using Microsoft.Win32;
 using WpfDragEventArgs = System.Windows.DragEventArgs;
@@ -14,21 +22,51 @@ public partial class MainWindow : Window
         "媒体文件|*.jpg;*.jpeg;*.tif;*.tiff;*.png;*.webp;*.heic;*.heif;*.avif;*.dng;*.arw;*.cr2;*.cr3;*.nef;*.raf;*.rw2;*.orf;*.pef;*.mp4;*.mov;*.m4v;*.mkv;*.avi;*.mts;*.m2ts;*.mpg;*.mpeg;*.3gp;*.mxf;*.ts;*.webm|所有文件|*.*";
 
     private readonly ViewerViewModel _viewModel = new();
+    private readonly ImageViewport _viewport = new();
+    private HwndSource? _windowSource;
+    private bool _isFullscreen;
+    private WindowStyle _savedWindowStyle;
+    private WindowState _savedWindowState;
+    private ResizeMode _savedResizeMode;
+    private Thickness _savedRootMargin;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        _viewport.SetBinding(ImageViewport.SourceProperty, new System.Windows.Data.Binding(nameof(ViewerViewModel.PreviewImage)));
+        _viewport.SetBinding(ImageViewport.ZoomProperty, new System.Windows.Data.Binding(nameof(ViewerViewModel.Zoom))
+        {
+            Mode = System.Windows.Data.BindingMode.TwoWay
+        });
+        _viewport.SetBinding(ImageViewport.RotationProperty, new System.Windows.Data.Binding(nameof(ViewerViewModel.PreviewRotation))
+        {
+            Mode = System.Windows.Data.BindingMode.TwoWay
+        });
+        NormalViewportHost.Content = _viewport;
+        PreviewColumn.Width = new GridLength(_viewModel.SplitRatio, GridUnitType.Star);
+        MetadataColumn.Width = new GridLength(1 - _viewModel.SplitRatio, GridUnitType.Star);
+        ThumbnailList.Visibility = _viewModel.IsThumbnailView ? Visibility.Visible : Visibility.Collapsed;
+        DetailsList.Visibility = _viewModel.IsThumbnailView ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        _windowSource = (HwndSource?)PresentationSource.FromVisual(this);
+        _windowSource?.AddHook(WindowMessageHook);
         var commandLineFile = Environment.GetCommandLineArgs()
             .Skip(1)
             .FirstOrDefault(File.Exists);
         if (commandLineFile is not null)
             await OpenFileWithNeighborsAsync(commandLineFile);
+    }
+
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        _windowSource?.RemoveHook(WindowMessageHook);
+        _windowSource = null;
+        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
     }
 
     private async void OpenFile_Click(object sender, RoutedEventArgs e)
@@ -126,9 +164,13 @@ public partial class MainWindow : Window
         await _viewModel.GoNextAsync();
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _viewModel.Cancel();
-    private void Rotate_Click(object sender, RoutedEventArgs e) => _viewModel.RotatePreview();
+    private void Rotate_Click(object sender, RoutedEventArgs e) => _viewport.RotateClockwise();
     private void PreviewScale_Click(object sender, RoutedEventArgs e) => _viewModel.TogglePreviewSize();
-    private void FitPreview_Click(object sender, RoutedEventArgs e) => _viewModel.ResetPreviewSize();
+    private void FitPreview_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.ResetPreviewSize();
+        _viewport.FitToViewport();
+    }
 
     private void Theme_Click(object sender, RoutedEventArgs e) =>
         _viewModel.IsDarkTheme = !_viewModel.IsDarkTheme;
@@ -234,10 +276,151 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void Window_PreviewKeyDown(object sender, WpfKeyEventArgs e)
+    {
+        if (e.Key == Key.F11)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape && _isFullscreen)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.Modifiers != ModifierKeys.None || IsTextEntryFocused())
+            return;
+        switch (e.Key)
+        {
+            case Key.Left:
+            case Key.Up:
+                if (_viewModel.CanGoPrevious) await _viewModel.GoPreviousAsync();
+                e.Handled = true;
+                break;
+            case Key.Right:
+            case Key.Down:
+                if (_viewModel.CanGoNext) await _viewModel.GoNextAsync();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private bool IsTextEntryFocused()
+    {
+        var focused = Keyboard.FocusedElement as DependencyObject;
+        return focused is TextBoxBase or ComboBox or DataGrid;
+    }
+
+    private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int wmMouseHWheel = 0x020E;
+        if (message != wmMouseHWheel || !_viewport.IsVisible || _viewport.Source is null)
+            return IntPtr.Zero;
+
+        var screenPoint = new Point(unchecked((short)(long)lParam), unchecked((short)((long)lParam >> 16)));
+        var localPoint = _viewport.PointFromScreen(screenPoint);
+        if (localPoint.X < 0 || localPoint.Y < 0 || localPoint.X >= _viewport.ActualWidth || localPoint.Y >= _viewport.ActualHeight)
+            return IntPtr.Zero;
+
+        var delta = unchecked((short)(((long)wParam >> 16) & 0xffff));
+        _viewport.PanHorizontally(delta * 0.55);
+        handled = true;
+        return IntPtr.Zero;
+    }
+
+    private void ToggleBrowser_Click(object sender, RoutedEventArgs e) =>
+        _viewModel.IsBrowserExpanded = !_viewModel.IsBrowserExpanded;
+
+    private async void ParentFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.GoParentDirectoryAsync();
+    private async void RefreshFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshBrowserAsync();
+    private async void BrowserPathBox_KeyDown(object sender, WpfKeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        await _viewModel.NavigateDirectoryAsync(_viewModel.CurrentDirectory);
+        e.Handled = true;
+    }
+
+    private void ThumbnailView_Click(object sender, RoutedEventArgs e) => _viewModel.IsThumbnailView = true;
+    private void DetailsView_Click(object sender, RoutedEventArgs e) => _viewModel.IsThumbnailView = false;
+
+    private async void BrowserList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListBox list && list.SelectedItem is BrowserEntry { IsDirectory: false } listEntry &&
+            !string.Equals(listEntry.FullPath, _viewModel.FilePath, StringComparison.OrdinalIgnoreCase))
+            await _viewModel.OpenBrowserEntryAsync(listEntry);
+        else if (sender is DataGrid grid && grid.SelectedItem is BrowserEntry { IsDirectory: false } gridEntry &&
+                 !string.Equals(gridEntry.FullPath, _viewModel.FilePath, StringComparison.OrdinalIgnoreCase))
+            await _viewModel.OpenBrowserEntryAsync(gridEntry);
+    }
+
+    private async void BrowserList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListBox list)
+            await _viewModel.OpenBrowserEntryAsync(list.SelectedItem as BrowserEntry);
+        else if (sender is DataGrid grid)
+            await _viewModel.OpenBrowserEntryAsync(grid.SelectedItem as BrowserEntry);
+    }
+
+    private async void Thumbnail_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Image { DataContext: BrowserEntry entry })
+            await _viewModel.LoadThumbnailAsync(entry);
+    }
+
+    private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        var available = PreviewColumn.ActualWidth + MetadataColumn.ActualWidth;
+        if (available > 0)
+            _viewModel.SetSplitRatio(PreviewColumn.ActualWidth / available);
+    }
+
+    private void ToggleFullScreen_Click(object sender, RoutedEventArgs e) => ToggleFullScreen();
+    private void ToggleFullScreen()
+    {
+        if (!_isFullscreen)
+        {
+            _savedWindowStyle = WindowStyle;
+            _savedWindowState = WindowState;
+            _savedResizeMode = ResizeMode;
+            _savedRootMargin = RootGrid.Margin;
+            NormalViewportHost.Content = null;
+            FullscreenViewportHost.Content = _viewport;
+            MainLayout.Visibility = Visibility.Collapsed;
+            FullscreenOverlay.Visibility = Visibility.Visible;
+            RootGrid.Margin = new Thickness(0);
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+            _isFullscreen = true;
+            _viewport.Focus();
+        }
+        else
+        {
+            FullscreenViewportHost.Content = null;
+            NormalViewportHost.Content = _viewport;
+            FullscreenOverlay.Visibility = Visibility.Collapsed;
+            MainLayout.Visibility = Visibility.Visible;
+            WindowState = _savedWindowState;
+            WindowStyle = _savedWindowStyle;
+            ResizeMode = _savedResizeMode;
+            RootGrid.Margin = _savedRootMargin;
+            _isFullscreen = false;
+            _viewport.Focus();
+        }
+    }
+
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ViewerViewModel.IsDarkTheme))
             ApplyTheme(_viewModel.IsDarkTheme);
+        else if (e.PropertyName == nameof(ViewerViewModel.IsThumbnailView))
+        {
+            ThumbnailList.Visibility = _viewModel.IsThumbnailView ? Visibility.Visible : Visibility.Collapsed;
+            DetailsList.Visibility = _viewModel.IsThumbnailView ? Visibility.Collapsed : Visibility.Visible;
+        }
     }
 
     private void ApplyTheme(bool dark)

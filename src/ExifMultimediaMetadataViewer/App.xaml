@@ -4,6 +4,7 @@
              xmlns:local="clr-namespace:ExifMultimediaMetadataViewer"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <SolidColorBrush x:Key="WindowBrush" Color="#F3F6FB" />
         <SolidColorBrush x:Key="PanelBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="PanelAltBrush" Color="#EAF0F7" />
