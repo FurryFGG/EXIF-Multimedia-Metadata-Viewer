@@ -49,6 +49,9 @@ $stagingParent = Join-Path $repoRoot "artifacts\staging"
 $stagingPath = Join-Path $stagingParent ([Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
 try {
+    & $dotnetPath run --project (Join-Path $repoRoot "tests\ExifMetadata.IntegrationTests\ExifMetadata.IntegrationTests.csproj") -c Release -- $repoRoot
+    if ($LASTEXITCODE -ne 0) { throw "Integration tests failed; release was not created." }
+
     & $dotnetPath publish $projectFile -c Release -r win-x64 --self-contained true `
         -p:PublishSingleFile=false -p:PublishTrimmed=false -o $stagingPath
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -69,6 +72,23 @@ try {
     if ($versionInfo.FileVersion -notlike "$version*") {
         throw "Published EXE file version '$($versionInfo.FileVersion)' does not match project version '$version'."
     }
+
+    $smokeProcess = Start-Process -FilePath $stagedExe -PassThru
+    $smokeDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    while ([DateTime]::UtcNow -lt $smokeDeadline -and -not $smokeProcess.HasExited) {
+        $smokeProcess.Refresh()
+        if ($smokeProcess.MainWindowHandle -ne 0 -and $smokeProcess.Responding) { break }
+        Start-Sleep -Milliseconds 50
+    }
+    $smokeProcess.Refresh()
+    if ($smokeProcess.HasExited -or $smokeProcess.MainWindowHandle -eq 0 -or -not $smokeProcess.Responding) {
+        if (-not $smokeProcess.HasExited) { Stop-Process -Id $smokeProcess.Id }
+        throw "Published EXE did not create a responding main window within 10 seconds."
+    }
+    if (-not $smokeProcess.CloseMainWindow() -or -not $smokeProcess.WaitForExit(5000)) {
+        Stop-Process -Id $smokeProcess.Id
+    }
+    $smokeProcess.Dispose()
 
     New-Item -ItemType Directory -Path $releaseRoot | Out-Null
     Move-Item -LiteralPath $stagingPath -Destination $appOutput

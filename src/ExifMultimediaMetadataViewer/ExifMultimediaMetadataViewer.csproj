@@ -14,6 +14,8 @@
     <Product>EXIF 全媒体元数据查看器</Product>
     <Company>FurryFGG</Company>
     <Description>Windows 本地只读全媒体元数据查看器</Description>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

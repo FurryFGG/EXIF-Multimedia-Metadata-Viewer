@@ -105,7 +105,7 @@ foreach (var path in sampleFiles)
 
 if (reports.Count == 0)
     Console.WriteLine("No binary-media integration assertions were run.");
-else if (!sawAudioStream)
+else if (reports.Any(report => MediaAnalyzer.IsVideoFile(report.Analysis.FilePath)) && !sawAudioStream)
     failures.Add("The supplied video samples did not validate an audio stream.");
 
 var arw = reports.FirstOrDefault(report => report.Name.EndsWith(".ARW", StringComparison.OrdinalIgnoreCase));
