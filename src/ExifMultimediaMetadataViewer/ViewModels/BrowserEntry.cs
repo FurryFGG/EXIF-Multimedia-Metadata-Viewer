@@ -10,6 +10,7 @@ public sealed class BrowserEntry : ObservableObject
     private bool _thumbnailLoaded;
     private int? _imageWidth;
     private int? _imageHeight;
+    private string _previewStatus = "等待预览";
 
     public BrowserEntry(string fullPath, bool isDirectory, long size, DateTime modifiedTime)
     {
@@ -38,9 +39,7 @@ public sealed class BrowserEntry : ObservableObject
     public string TypeGlyph => IsDirectory ? "文件夹" : MediaAnalyzer.IsVideoFile(FullPath) ? "视频" : MediaAnalyzer.IsImageFile(FullPath) ? "照片" : "文件";
     public string PreviewStatusText => IsDirectory
         ? "文件夹"
-        : MediaAnalyzer.IsKnownMediaFile(FullPath)
-            ? "可尝试预览"
-            : "不支持处理";
+        : _previewStatus;
     public string PreviewSizeText => _imageWidth is > 0 && _imageHeight is > 0
         ? $"{_imageWidth} × {_imageHeight}"
         : "";
@@ -52,6 +51,8 @@ public sealed class BrowserEntry : ObservableObject
         if (IsDirectory || _thumbnailLoaded || IsThumbnailLoading || !MediaAnalyzer.IsKnownMediaFile(FullPath))
             return false;
         IsThumbnailLoading = true;
+        _previewStatus = "正在加载";
+        OnPropertyChanged(nameof(PreviewStatusText));
         return true;
     }
 
@@ -62,10 +63,17 @@ public sealed class BrowserEntry : ObservableObject
         _imageHeight = imageHeight;
         _thumbnailLoaded = true;
         IsThumbnailLoading = false;
+        _previewStatus = thumbnail is null ? "不支持预览或读取失败" : "缩略图已加载";
         OnPropertyChanged(nameof(PreviewSizeText));
+        OnPropertyChanged(nameof(PreviewStatusText));
     }
 
-    public void CancelThumbnailLoad() => IsThumbnailLoading = false;
+    public void CancelThumbnailLoad()
+    {
+        IsThumbnailLoading = false;
+        _previewStatus = "等待预览";
+        OnPropertyChanged(nameof(PreviewStatusText));
+    }
 
     private static string FormatSize(long bytes)
     {

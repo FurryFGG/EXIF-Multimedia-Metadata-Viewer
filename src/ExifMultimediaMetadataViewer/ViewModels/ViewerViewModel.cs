@@ -18,6 +18,7 @@ public sealed class ViewerViewModel : ObservableObject
     private readonly ViewerSettingsStore _settingsStore = new();
     private readonly ICollectionView _filteredFields;
     private CancellationTokenSource? _loadCancellation;
+    private CancellationTokenSource? _browserCancellation;
     private IReadOnlyList<string> _folderFiles = [];
     private int _folderIndex = -1;
     private MediaAnalysis? _analysis;
@@ -36,13 +37,21 @@ public sealed class ViewerViewModel : ObservableObject
     private string _previewScale = "适应窗口";
     private long _loadGeneration;
     private string _currentDirectory = "";
+    private string _addressText = "";
     private string _browserStatus = "选择文件夹以浏览媒体";
     private bool _isBrowserExpanded;
-    private bool _isThumbnailView = true;
+    private string _browserViewMode = "缩略图";
     private string _browserSortMode = "名称";
     private BrowserEntry? _selectedBrowserEntry;
+    private DirectoryTreeNode? _selectedDirectoryNode;
     private double _splitRatio = 0.49;
+    private double _browserTreeWidth = 260;
+    private double _browserHeight = 300;
+    private double _thumbnailSize = 150;
     private long _browserGeneration;
+    private readonly List<string> _directoryHistory = [];
+    private int _directoryHistoryIndex = -1;
+    private bool _syncingTreeSelection;
 
     public ViewerViewModel()
     {
@@ -54,29 +63,71 @@ public sealed class ViewerViewModel : ObservableObject
         var settings = _settingsStore.Load();
         _splitRatio = settings.SplitRatio;
         _browserSortMode = settings.BrowserSortMode;
-        _isThumbnailView = settings.IsThumbnailView;
+        _browserViewMode = settings.BrowserViewMode;
         _isBrowserExpanded = settings.IsBrowserExpanded;
+        _browserTreeWidth = settings.BrowserTreeWidth;
+        _browserHeight = settings.BrowserHeight;
+        _thumbnailSize = settings.ThumbnailSize;
+        _isDarkTheme = settings.IsDarkTheme;
         BrowserEntries = new ObservableCollection<BrowserEntry>();
+        DirectoryRoots = new ObservableCollection<DirectoryTreeNode>(_fileBrowserService.GetDriveRoots());
         SummarySections = [];
         BrowserSortModes = ["名称", "类型", "修改时间", "大小"];
+        BrowserViewModes = ["缩略图", "列表", "详细信息"];
     }
 
     public BulkObservableCollection<MetadataField> Fields { get; }
     public BulkObservableCollection<MetadataField> SummaryFields { get; }
     public ObservableCollection<string> RecentFiles { get; }
     public ObservableCollection<BrowserEntry> BrowserEntries { get; }
+    public ObservableCollection<DirectoryTreeNode> DirectoryRoots { get; }
     public IReadOnlyList<MetadataSummarySection> SummarySections { get; private set; }
     public IReadOnlyList<string> BrowserSortModes { get; }
-    public string CurrentDirectory { get => _currentDirectory; set => SetProperty(ref _currentDirectory, value); }
+    public IReadOnlyList<string> BrowserViewModes { get; }
+    public string CurrentDirectory { get => _currentDirectory; private set => SetProperty(ref _currentDirectory, value); }
+    public string AddressText { get => _addressText; set => SetProperty(ref _addressText, value); }
     public string BrowserStatus { get => _browserStatus; private set => SetProperty(ref _browserStatus, value); }
     public bool IsBrowserExpanded { get => _isBrowserExpanded; set { if (SetProperty(ref _isBrowserExpanded, value)) { OnPropertyChanged(nameof(BrowserButtonText)); SaveSettings(); } } }
-    public bool IsThumbnailView { get => _isThumbnailView; set { if (SetProperty(ref _isThumbnailView, value)) SaveSettings(); } }
+    public string BrowserViewMode
+    {
+        get => _browserViewMode;
+        set
+        {
+            var normalized = value is "缩略图" or "列表" or "详细信息" ? value : "缩略图";
+            if (!SetProperty(ref _browserViewMode, normalized)) return;
+            OnPropertyChanged(nameof(IsThumbnailView));
+            OnPropertyChanged(nameof(IsListView));
+            OnPropertyChanged(nameof(IsDetailsView));
+            SaveSettings();
+        }
+    }
+    public bool IsThumbnailView => BrowserViewMode == "缩略图";
+    public bool IsListView => BrowserViewMode == "列表";
+    public bool IsDetailsView => BrowserViewMode == "详细信息";
     public string BrowserSortMode { get => _browserSortMode; set { if (SetProperty(ref _browserSortMode, value)) { SaveSettings(); _ = RefreshBrowserAsync(); } } }
     public BrowserEntry? SelectedBrowserEntry { get => _selectedBrowserEntry; set => SetProperty(ref _selectedBrowserEntry, value); }
+    public DirectoryTreeNode? SelectedDirectoryNode { get => _selectedDirectoryNode; private set => SetProperty(ref _selectedDirectoryNode, value); }
     public double SplitRatio => _splitRatio;
+    public double BrowserTreeWidth => _browserTreeWidth;
+    public double BrowserHeight => _browserHeight;
+    public double ThumbnailSize
+    {
+        get => _thumbnailSize;
+        set
+        {
+            if (SetProperty(ref _thumbnailSize, Math.Clamp(value, 96, 260)))
+            {
+                OnPropertyChanged(nameof(ThumbnailImageHeight));
+                SaveSettings();
+            }
+        }
+    }
+    public double ThumbnailImageHeight => Math.Round(ThumbnailSize * 0.68);
     public string BrowserButtonText => IsBrowserExpanded ? "隐藏浏览器" : "文件浏览器";
     public string FileCountText => $"{BrowserEntries.Count:N0} 项";
     public bool CanGoParent => !string.IsNullOrWhiteSpace(CurrentDirectory) && Directory.GetParent(CurrentDirectory) is not null;
+    public bool CanGoBack => _directoryHistoryIndex > 0;
+    public bool CanGoForward => _directoryHistoryIndex >= 0 && _directoryHistoryIndex < _directoryHistory.Count - 1;
     public ICollectionView FilteredFields => _filteredFields;
     public MediaAnalysis? Analysis { get => _analysis; private set => SetProperty(ref _analysis, value); }
     public MetadataField? SelectedField { get => _selectedField; set => SetProperty(ref _selectedField, value); }
@@ -101,7 +152,10 @@ public sealed class ViewerViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _isDarkTheme, value))
+            {
                 OnPropertyChanged(nameof(ThemeButtonText));
+                SaveSettings();
+            }
         }
     }
     public bool IsFitPreview { get => _isFitPreview; private set => SetProperty(ref _isFitPreview, value); }
@@ -165,28 +219,66 @@ public sealed class ViewerViewModel : ObservableObject
             string.Equals(entry.FullPath, target, StringComparison.OrdinalIgnoreCase));
     }
 
-    public async Task NavigateDirectoryAsync(string directory, string? selectPath = null)
+    public async Task NavigateDirectoryAsync(string directory, string? selectPath = null, bool addToHistory = true)
     {
         var generation = Interlocked.Increment(ref _browserGeneration);
+        _browserCancellation?.Cancel();
+        _browserCancellation?.Dispose();
+        _browserCancellation = new CancellationTokenSource();
+        var token = _browserCancellation.Token;
         try
         {
-            CurrentDirectory = Path.GetFullPath(directory);
-            var entries = await _fileBrowserService.EnumerateAsync(CurrentDirectory, BrowserSortMode).ConfigureAwait(true);
-            if (generation != _browserGeneration)
+            var targetDirectory = Path.GetFullPath(Environment.ExpandEnvironmentVariables(directory.Trim()));
+            if (!Directory.Exists(targetDirectory))
+                throw new DirectoryNotFoundException($"找不到文件夹：{targetDirectory}");
+            BrowserStatus = $"正在读取 {targetDirectory}…";
+            var entries = await _fileBrowserService.EnumerateAsync(targetDirectory, BrowserSortMode, token).ConfigureAwait(true);
+            if (generation != _browserGeneration || token.IsCancellationRequested)
                 return;
+            CurrentDirectory = targetDirectory;
+            AddressText = targetDirectory;
             BrowserEntries.Clear();
             foreach (var entry in entries)
                 BrowserEntries.Add(entry);
             SelectedBrowserEntry = selectPath is null ? null : BrowserEntries.FirstOrDefault(entry =>
                 string.Equals(entry.FullPath, Path.GetFullPath(selectPath), StringComparison.OrdinalIgnoreCase));
             BrowserStatus = $"{CurrentDirectory} · {BrowserEntries.Count:N0} 项";
+            RebuildFolderNavigation();
+            if (addToHistory)
+                AddDirectoryHistory(CurrentDirectory);
             OnPropertyChanged(nameof(FileCountText));
             OnPropertyChanged(nameof(CanGoParent));
+            OnPropertyChanged(nameof(CanGoBack));
+            OnPropertyChanged(nameof(CanGoForward));
+            await SelectTreePathAsync(CurrentDirectory, token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or System.Security.SecurityException)
         {
             BrowserStatus = $"无法读取文件夹：{exception.Message}";
+            AddressText = CurrentDirectory;
+            StatusText = BrowserStatus;
         }
+    }
+
+    public async Task GoBackDirectoryAsync()
+    {
+        if (!CanGoBack) return;
+        _directoryHistoryIndex--;
+        await NavigateDirectoryAsync(_directoryHistory[_directoryHistoryIndex], addToHistory: false).ConfigureAwait(true);
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoForward));
+    }
+
+    public async Task GoForwardDirectoryAsync()
+    {
+        if (!CanGoForward) return;
+        _directoryHistoryIndex++;
+        await NavigateDirectoryAsync(_directoryHistory[_directoryHistoryIndex], addToHistory: false).ConfigureAwait(true);
+        OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanGoForward));
     }
 
     public async Task GoParentDirectoryAsync()
@@ -198,11 +290,46 @@ public sealed class ViewerViewModel : ObservableObject
 
     public Task RefreshBrowserAsync() => string.IsNullOrWhiteSpace(CurrentDirectory)
         ? Task.CompletedTask
-        : NavigateDirectoryAsync(CurrentDirectory, FilePath);
+        : NavigateDirectoryAsync(CurrentDirectory, FilePath, addToHistory: false);
+
+    public async Task LoadDirectoryChildrenAsync(DirectoryTreeNode node)
+    {
+        if (node.IsPlaceholder || node.ChildrenLoaded || !Directory.Exists(node.FullPath))
+            return;
+        node.BeginLoading();
+        try
+        {
+            var children = await _fileBrowserService.EnumerateDirectoriesAsync(node.FullPath).ConfigureAwait(true);
+            node.CompleteLoading(children);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            node.FailLoading();
+            BrowserStatus = $"无法展开文件夹：{exception.Message}";
+        }
+    }
+
+    public async Task SelectDirectoryNodeAsync(DirectoryTreeNode? node)
+    {
+        if (node is null || node.IsPlaceholder || _syncingTreeSelection)
+            return;
+        SelectedDirectoryNode = node;
+        if (!string.Equals(node.FullPath, CurrentDirectory, StringComparison.OrdinalIgnoreCase))
+            await NavigateDirectoryAsync(node.FullPath).ConfigureAwait(true);
+    }
 
     public void SetSplitRatio(double ratio)
     {
         _splitRatio = Math.Clamp(ratio, 0.3, 0.7);
+        SaveSettings();
+    }
+
+    public void SetLayoutSizes(double browserTreeWidth, double browserHeight)
+    {
+        _browserTreeWidth = Math.Clamp(browserTreeWidth, 170, 520);
+        _browserHeight = Math.Clamp(browserHeight, 190, 620);
+        OnPropertyChanged(nameof(BrowserTreeWidth));
+        OnPropertyChanged(nameof(BrowserHeight));
         SaveSettings();
     }
 
@@ -220,10 +347,22 @@ public sealed class ViewerViewModel : ObservableObject
     {
         if (!entry.TryBeginThumbnailLoad())
             return;
+        var generation = _browserGeneration;
+        var token = _browserCancellation?.Token ?? CancellationToken.None;
         var ffmpeg = Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg", "ffmpeg.exe");
-        var result = await _previewService.LoadThumbnailAsync(entry.FullPath, ffmpeg, CancellationToken.None)
-            .ConfigureAwait(true);
-        entry.CompleteThumbnailLoad(result.Image, result.Width, result.Height);
+        try
+        {
+            var result = await _previewService.LoadThumbnailAsync(entry.FullPath, ffmpeg, token)
+                .ConfigureAwait(true);
+            if (generation == _browserGeneration && !token.IsCancellationRequested)
+                entry.CompleteThumbnailLoad(result.Image, result.Width, result.Height);
+            else
+                entry.CancelThumbnailLoad();
+        }
+        catch (OperationCanceledException)
+        {
+            entry.CancelThumbnailLoad();
+        }
     }
 
     public async Task OpenBrowserEntryAsync(BrowserEntry? entry)
@@ -238,17 +377,27 @@ public sealed class ViewerViewModel : ObservableObject
         if (!MediaAnalyzer.IsKnownMediaFile(entry.FullPath))
         {
             BrowserStatus = $"不支持的文件类型：{entry.Extension}";
+            FilePath = entry.FullPath;
+            PreviewImage = null;
+            PreviewMessage = $"{entry.Name}\n不支持预览；文件仍保留在浏览器中。";
+            Fields.Clear();
+            SummaryFields.Clear();
+            SummarySections = [];
+            Analysis = null;
+            OnPropertyChanged(nameof(FileName));
+            OnPropertyChanged(nameof(FileSizeText));
+            OnPropertyChanged(nameof(FileTypeText));
+            OnPropertyChanged(nameof(FieldCountText));
+            OnPropertyChanged(nameof(ParserSummary));
+            OnPropertyChanged(nameof(RawOutput));
+            OnPropertyChanged(nameof(SummarySections));
+            StatusText = BrowserStatus;
             return;
         }
         if (string.Equals(entry.FullPath, FilePath, StringComparison.OrdinalIgnoreCase))
             return;
         IsBrowserExpanded = true;
-        _folderFiles = BrowserEntries.Where(item => !item.IsDirectory && MediaAnalyzer.IsKnownMediaFile(item.FullPath))
-            .Select(item => item.FullPath)
-            .ToArray();
-        _folderIndex = Array.FindIndex(_folderFiles.ToArray(), path =>
-            string.Equals(path, entry.FullPath, StringComparison.OrdinalIgnoreCase));
-        RefreshNavigation();
+        RebuildFolderNavigation(entry.FullPath);
         await LoadFileAsync(entry.FullPath).ConfigureAwait(true);
         SelectedBrowserEntry = entry;
     }
@@ -259,6 +408,7 @@ public sealed class ViewerViewModel : ObservableObject
         {
             _folderIndex--;
             await LoadFileAsync(_folderFiles[_folderIndex]).ConfigureAwait(true);
+            SyncSelectedBrowserEntry();
         }
         RefreshNavigation();
     }
@@ -269,6 +419,7 @@ public sealed class ViewerViewModel : ObservableObject
         {
             _folderIndex++;
             await LoadFileAsync(_folderFiles[_folderIndex]).ConfigureAwait(true);
+            SyncSelectedBrowserEntry();
         }
         RefreshNavigation();
     }
@@ -395,17 +546,11 @@ public sealed class ViewerViewModel : ObservableObject
 
             try
             {
-                var image = await _previewService.LoadAsync(analysis, exifTool, ffmpeg, token).ConfigureAwait(true);
+                var preview = await _previewService.LoadAsync(analysis, exifTool, ffmpeg, token).ConfigureAwait(true);
                 if (token.IsCancellationRequested || generation != _loadGeneration)
                     return;
-                PreviewImage = image;
-                PreviewMessage = image is null
-                    ? MediaAnalyzer.IsVideoFile(FilePath)
-                        ? "视频缩略图不可用；视频元数据仍可查看。"
-                        : "不支持预览或图像解码失败；元数据读取结果仍可查看。"
-                    : IsVideo(FilePath)
-                        ? "视频首帧预览 · 本地 FFmpeg 解码"
-                        : "照片预览";
+                PreviewImage = preview.Image;
+                PreviewMessage = preview.Description;
                 SummarySections = MetadataSummaryBuilder.Build(analysis, PreviewMessage);
                 OnPropertyChanged(nameof(SummarySections));
             }
@@ -449,6 +594,80 @@ public sealed class ViewerViewModel : ObservableObject
         return analysis.AllFields.Where(field => names.Contains(field.TagName));
     }
 
+    private void AddDirectoryHistory(string directory)
+    {
+        if (_directoryHistoryIndex >= 0 &&
+            string.Equals(_directoryHistory[_directoryHistoryIndex], directory, StringComparison.OrdinalIgnoreCase))
+            return;
+        if (_directoryHistoryIndex < _directoryHistory.Count - 1)
+            _directoryHistory.RemoveRange(_directoryHistoryIndex + 1, _directoryHistory.Count - _directoryHistoryIndex - 1);
+        _directoryHistory.Add(directory);
+        _directoryHistoryIndex = _directoryHistory.Count - 1;
+    }
+
+    private void RebuildFolderNavigation(string? selectedPath = null)
+    {
+        _folderFiles = BrowserEntries
+            .Where(item => !item.IsDirectory && MediaAnalyzer.IsKnownMediaFile(item.FullPath))
+            .Select(item => item.FullPath)
+            .ToArray();
+        var target = selectedPath ?? FilePath;
+        _folderIndex = string.IsNullOrWhiteSpace(target)
+            ? -1
+            : Array.FindIndex(_folderFiles.ToArray(), path =>
+                string.Equals(path, target, StringComparison.OrdinalIgnoreCase));
+        RefreshNavigation();
+    }
+
+    private void SyncSelectedBrowserEntry()
+    {
+        if (_folderIndex < 0 || _folderIndex >= _folderFiles.Count)
+            return;
+        SelectedBrowserEntry = BrowserEntries.FirstOrDefault(entry =>
+            string.Equals(entry.FullPath, _folderFiles[_folderIndex], StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task SelectTreePathAsync(string directory, CancellationToken cancellationToken)
+    {
+        var fullPath = Path.GetFullPath(directory);
+        var rootPath = Path.GetPathRoot(fullPath);
+        if (string.IsNullOrWhiteSpace(rootPath))
+            return;
+        var node = DirectoryRoots.FirstOrDefault(candidate =>
+            string.Equals(Path.GetFullPath(candidate.FullPath), Path.GetFullPath(rootPath), StringComparison.OrdinalIgnoreCase));
+        if (node is null)
+            return;
+
+        var relative = Path.GetRelativePath(rootPath, fullPath);
+        if (relative != ".")
+        {
+            foreach (var segment in relative.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await LoadDirectoryChildrenAsync(node).ConfigureAwait(true);
+                node.IsExpanded = true;
+                var next = node.Children.FirstOrDefault(child =>
+                    !child.IsPlaceholder && child.DisplayName.Equals(segment, StringComparison.OrdinalIgnoreCase));
+                if (next is null)
+                    break;
+                node = next;
+            }
+        }
+
+        _syncingTreeSelection = true;
+        try
+        {
+            if (SelectedDirectoryNode is not null)
+                SelectedDirectoryNode.IsSelected = false;
+            SelectedDirectoryNode = node;
+            node.IsSelected = true;
+        }
+        finally
+        {
+            _syncingTreeSelection = false;
+        }
+    }
+
     private bool FilterField(object item)
     {
         if (item is not MetadataField field)
@@ -478,9 +697,13 @@ public sealed class ViewerViewModel : ObservableObject
             _settingsStore.Save(new ViewerSettings
             {
                 SplitRatio = _splitRatio,
+                BrowserTreeWidth = _browserTreeWidth,
+                BrowserHeight = _browserHeight,
+                ThumbnailSize = ThumbnailSize,
                 BrowserSortMode = BrowserSortMode,
-                IsThumbnailView = IsThumbnailView,
-                IsBrowserExpanded = IsBrowserExpanded
+                BrowserViewMode = BrowserViewMode,
+                IsBrowserExpanded = IsBrowserExpanded,
+                IsDarkTheme = IsDarkTheme
             });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

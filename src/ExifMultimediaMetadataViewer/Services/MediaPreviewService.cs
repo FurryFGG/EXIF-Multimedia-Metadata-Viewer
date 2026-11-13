@@ -1,17 +1,28 @@
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Windows.Media.Imaging;
 using ExifMetadata.Core.Models;
 using ExifMetadata.Core.Services;
 
 namespace ExifMultimediaMetadataViewer.Services;
 
+public sealed record PreviewLoadResult(BitmapSource? Image, string Description, bool IsFullResolution);
+
 public sealed class MediaPreviewService
 {
+    private static readonly ConcurrentDictionary<string, WeakReference<BitmapSource>> ThumbnailCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public async Task<(BitmapSource? Image, int? Width, int? Height)> LoadThumbnailAsync(
         string path,
         string ffmpegPath,
         CancellationToken cancellationToken)
     {
+        var info = new FileInfo(path);
+        var cacheKey = $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
+        if (ThumbnailCache.TryGetValue(cacheKey, out var reference) && reference.TryGetTarget(out var cached))
+            return (cached, cached.PixelWidth, cached.PixelHeight);
+
         try
         {
             BitmapSource? image;
@@ -24,6 +35,8 @@ public sealed class MediaPreviewService
             {
                 image = await Task.Run(() => DecodeFile(path, 280), cancellationToken).ConfigureAwait(false);
             }
+            if (image is not null)
+                ThumbnailCache[cacheKey] = new WeakReference<BitmapSource>(image);
             return (image, image?.PixelWidth, image?.PixelHeight);
         }
         catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException or System.ComponentModel.Win32Exception)
@@ -32,7 +45,7 @@ public sealed class MediaPreviewService
         }
     }
 
-    public async Task<BitmapSource?> LoadAsync(
+    public async Task<PreviewLoadResult> LoadAsync(
         MediaAnalysis analysis,
         string exifToolPath,
         string ffmpegPath,
@@ -41,48 +54,57 @@ public sealed class MediaPreviewService
         if (MediaAnalyzer.IsVideoFile(analysis.FilePath))
         {
             if (!File.Exists(ffmpegPath))
-                return null;
+                return new PreviewLoadResult(null, "视频预览不可用：未找到 FFmpeg。", false);
             var frame = await ExtractVideoFrameAsync(ffmpegPath, analysis.FilePath, cancellationToken)
                 .ConfigureAwait(false);
-            return Decode(frame, 1800);
+            var videoImage = Decode(frame, null);
+            return new PreviewLoadResult(videoImage,
+                videoImage is null ? "视频首帧解码失败；元数据仍可查看。" : "视频首帧预览 · FFmpeg 缩放至最长边约 1600 像素",
+                false);
         }
 
         try
         {
-            return await Task.Run(() => DecodeFile(analysis.FilePath, 1800), cancellationToken)
+            var fullImage = await Task.Run(() => DecodeFile(analysis.FilePath, null), cancellationToken)
                 .ConfigureAwait(false);
+            return new PreviewLoadResult(fullImage,
+                fullImage is null ? "图像解码失败；元数据仍可查看。" : $"完整图像解码 · {fullImage.PixelWidth:N0} × {fullImage.PixelHeight:N0} 像素",
+                fullImage is not null);
         }
         catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException)
         {
             if (!File.Exists(exifToolPath))
-                return null;
+                return new PreviewLoadResult(null, "不支持原图解码，且未找到 ExifTool 嵌入预览提取器。", false);
             foreach (var tag in new[] { "PreviewImage", "PreviewImage2", "JpgFromRaw", "ThumbnailImage" })
             {
                 var bytes = await ExtractExifToolBinaryAsync(
                     exifToolPath, analysis.FilePath, tag, cancellationToken).ConfigureAwait(false);
-                var image = Decode(bytes, 1800);
+                var image = Decode(bytes, null);
                 if (image is not null)
-                    return image;
+                    return new PreviewLoadResult(image,
+                        $"RAW 嵌入预览（{tag}）· {image.PixelWidth:N0} × {image.PixelHeight:N0} 像素；不是完整 RAW 渲染",
+                        false);
             }
-            return null;
+            return new PreviewLoadResult(null, "不支持完整图像解码，且文件中没有可用的嵌入预览。", false);
         }
     }
 
-    private static BitmapSource? DecodeFile(string path, int decodePixelWidth)
+    private static BitmapSource? DecodeFile(string path, int? decodePixelWidth)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         var bitmap = new BitmapImage();
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-        bitmap.DecodePixelWidth = decodePixelWidth;
+        if (decodePixelWidth is > 0)
+            bitmap.DecodePixelWidth = decodePixelWidth.Value;
         bitmap.StreamSource = stream;
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
     }
 
-    private static BitmapSource? Decode(byte[]? bytes, int decodePixelWidth)
+    private static BitmapSource? Decode(byte[]? bytes, int? decodePixelWidth)
     {
         if (bytes is null || bytes.Length == 0)
             return null;
@@ -93,7 +115,8 @@ public sealed class MediaPreviewService
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            bitmap.DecodePixelWidth = decodePixelWidth;
+            if (decodePixelWidth is > 0)
+                bitmap.DecodePixelWidth = decodePixelWidth.Value;
             bitmap.StreamSource = stream;
             bitmap.EndInit();
             bitmap.Freeze();

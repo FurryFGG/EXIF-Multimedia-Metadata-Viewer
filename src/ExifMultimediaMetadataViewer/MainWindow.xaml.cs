@@ -47,8 +47,9 @@ public partial class MainWindow : Window
         NormalViewportHost.Content = _viewport;
         PreviewColumn.Width = new GridLength(_viewModel.SplitRatio, GridUnitType.Star);
         MetadataColumn.Width = new GridLength(1 - _viewModel.SplitRatio, GridUnitType.Star);
-        ThumbnailList.Visibility = _viewModel.IsThumbnailView ? Visibility.Visible : Visibility.Collapsed;
-        DetailsList.Visibility = _viewModel.IsThumbnailView ? Visibility.Collapsed : Visibility.Visible;
+        FolderTreeColumn.Width = new GridLength(_viewModel.BrowserTreeWidth);
+        ApplyBrowserVisibility();
+        ApplyTheme(_viewModel.IsDarkTheme);
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -60,12 +61,22 @@ public partial class MainWindow : Window
             .FirstOrDefault(File.Exists);
         if (commandLineFile is not null)
             await OpenFileWithNeighborsAsync(commandLineFile);
+        else
+        {
+            var initialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            if (string.IsNullOrWhiteSpace(initialDirectory) || !Directory.Exists(initialDirectory))
+                initialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (Directory.Exists(initialDirectory))
+                await _viewModel.NavigateDirectoryAsync(initialDirectory);
+        }
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
+        if (_viewModel.IsBrowserExpanded)
+            _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
     }
 
@@ -94,10 +105,12 @@ public partial class MainWindow : Window
 
         try
         {
-            var files = await Task.Run(() => Directory.EnumerateFiles(dialog.FolderName)
-                .Where(ExifMetadata.Core.Services.MediaAnalyzer.IsKnownMediaFile)
-                .ToArray());
-            await _viewModel.OpenAsync(files);
+            _viewModel.IsBrowserExpanded = true;
+            await _viewModel.NavigateDirectoryAsync(dialog.FolderName);
+            var firstMedia = _viewModel.BrowserEntries.FirstOrDefault(entry =>
+                !entry.IsDirectory && ExifMetadata.Core.Services.MediaAnalyzer.IsKnownMediaFile(entry.FullPath));
+            if (firstMedia is not null)
+                await _viewModel.OpenBrowserEntryAsync(firstMedia);
         }
         catch (Exception exception)
         {
@@ -171,6 +184,9 @@ public partial class MainWindow : Window
         _viewModel.ResetPreviewSize();
         _viewport.FitToViewport();
     }
+
+    private void ActualSize_Click(object sender, RoutedEventArgs e) => _viewport.SetActualPixelScale(1.0);
+    private void DoubleSize_Click(object sender, RoutedEventArgs e) => _viewport.SetActualPixelScale(2.0);
 
     private void Theme_Click(object sender, RoutedEventArgs e) =>
         _viewModel.IsDarkTheme = !_viewModel.IsDarkTheme;
@@ -334,17 +350,29 @@ public partial class MainWindow : Window
     private void ToggleBrowser_Click(object sender, RoutedEventArgs e) =>
         _viewModel.IsBrowserExpanded = !_viewModel.IsBrowserExpanded;
 
+    private async void BackFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.GoBackDirectoryAsync();
+    private async void ForwardFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.GoForwardDirectoryAsync();
     private async void ParentFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.GoParentDirectoryAsync();
     private async void RefreshFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshBrowserAsync();
     private async void BrowserPathBox_KeyDown(object sender, WpfKeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
-        await _viewModel.NavigateDirectoryAsync(_viewModel.CurrentDirectory);
+        await _viewModel.NavigateDirectoryAsync(BrowserPathBox.Text);
         e.Handled = true;
     }
 
-    private void ThumbnailView_Click(object sender, RoutedEventArgs e) => _viewModel.IsThumbnailView = true;
-    private void DetailsView_Click(object sender, RoutedEventArgs e) => _viewModel.IsThumbnailView = false;
+    private void ThumbnailView_Click(object sender, RoutedEventArgs e) => _viewModel.BrowserViewMode = "缩略图";
+    private void ListView_Click(object sender, RoutedEventArgs e) => _viewModel.BrowserViewMode = "列表";
+    private void DetailsView_Click(object sender, RoutedEventArgs e) => _viewModel.BrowserViewMode = "详细信息";
+
+    private async void FolderTreeItem_Expanded(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is TreeViewItem { DataContext: DirectoryTreeNode node })
+            await _viewModel.LoadDirectoryChildrenAsync(node);
+    }
+
+    private async void FolderTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e) =>
+        await _viewModel.SelectDirectoryNodeAsync(e.NewValue as DirectoryTreeNode);
 
     private async void BrowserList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -364,10 +392,58 @@ public partial class MainWindow : Window
             await _viewModel.OpenBrowserEntryAsync(grid.SelectedItem as BrowserEntry);
     }
 
+    private async void BrowserList_PreviewKeyDown(object sender, WpfKeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+        var entry = sender switch
+        {
+            ListBox list => list.SelectedItem as BrowserEntry,
+            DataGrid grid => grid.SelectedItem as BrowserEntry,
+            _ => null
+        };
+        await _viewModel.OpenBrowserEntryAsync(entry);
+        e.Handled = true;
+    }
+
     private async void Thumbnail_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is Image { DataContext: BrowserEntry entry })
+        if (sender is Image image && image.DataContext is BrowserEntry entry && IsElementVisibleIn(image, ThumbnailList))
             await _viewModel.LoadThumbnailAsync(entry);
+    }
+
+    private async void ThumbnailScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        await LoadVisibleThumbnailsAsync();
+    }
+
+    private async Task LoadVisibleThumbnailsAsync()
+    {
+        if (!ThumbnailList.IsVisible)
+            return;
+        foreach (var item in ThumbnailList.Items)
+        {
+            if (ThumbnailList.ItemContainerGenerator.ContainerFromItem(item) is not ListBoxItem container ||
+                !IsElementVisibleIn(container, ThumbnailList) || item is not BrowserEntry entry)
+                continue;
+            await _viewModel.LoadThumbnailAsync(entry);
+        }
+    }
+
+    private static bool IsElementVisibleIn(FrameworkElement element, FrameworkElement viewport)
+    {
+        if (!element.IsVisible || element.ActualWidth <= 0 || element.ActualHeight <= 0)
+            return false;
+        try
+        {
+            var bounds = element.TransformToAncestor(viewport)
+                .TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+            return bounds.IntersectsWith(new Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight));
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
@@ -376,6 +452,12 @@ public partial class MainWindow : Window
         if (available > 0)
             _viewModel.SetSplitRatio(PreviewColumn.ActualWidth / available);
     }
+
+    private void BrowserTreeSplitter_DragCompleted(object sender, DragCompletedEventArgs e) =>
+        _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
+
+    private void BrowserHeightSplitter_DragCompleted(object sender, DragCompletedEventArgs e) =>
+        _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
 
     private void ToggleFullScreen_Click(object sender, RoutedEventArgs e) => ToggleFullScreen();
     private void ToggleFullScreen()
@@ -416,10 +498,29 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(ViewerViewModel.IsDarkTheme))
             ApplyTheme(_viewModel.IsDarkTheme);
-        else if (e.PropertyName == nameof(ViewerViewModel.IsThumbnailView))
+        else if (e.PropertyName == nameof(ViewerViewModel.IsBrowserExpanded))
+            ApplyBrowserVisibility();
+        else if (e.PropertyName == nameof(ViewerViewModel.BrowserViewMode) && _viewModel.IsThumbnailView)
         {
-            ThumbnailList.Visibility = _viewModel.IsThumbnailView ? Visibility.Visible : Visibility.Collapsed;
-            DetailsList.Visibility = _viewModel.IsThumbnailView ? Visibility.Collapsed : Visibility.Visible;
+            Dispatcher.BeginInvoke(async () => await LoadVisibleThumbnailsAsync());
+        }
+    }
+
+    private void ApplyBrowserVisibility()
+    {
+        if (_viewModel.IsBrowserExpanded)
+        {
+            BrowserRow.MinHeight = 190;
+            BrowserRow.Height = new GridLength(Math.Clamp(_viewModel.BrowserHeight, 190, 620));
+            BrowserSplitterRow.Height = new GridLength(7);
+        }
+        else
+        {
+            if (BrowserRow.ActualHeight >= 190)
+                _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
+            BrowserRow.MinHeight = 0;
+            BrowserRow.Height = new GridLength(0);
+            BrowserSplitterRow.Height = new GridLength(0);
         }
     }
 

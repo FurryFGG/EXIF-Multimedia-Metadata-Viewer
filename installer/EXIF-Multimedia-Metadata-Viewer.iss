@@ -1,8 +1,9 @@
 #define AppName "EXIF Multimedia Metadata Viewer"
-#define AppExeName "EXIF Multimedia Metadata Viewer.exe"
+#define AppExeName GetEnv("EXIF_APP_EXE_NAME")
 #define AppVersion GetEnv("EXIF_INSTALLER_VERSION")
 #define PublishDir GetEnv("EXIF_PUBLISH_DIR")
 #define InstallerOutputDir GetEnv("EXIF_INSTALLER_OUTPUT_DIR")
+#define InstallerBaseName GetEnv("EXIF_INSTALLER_BASE_NAME")
 
 [Setup]
 AppId={{88AB7794-7E8B-40E7-8BD2-A0FAF16DA0D3}
@@ -17,7 +18,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#InstallerOutputDir}
-OutputBaseFilename=EXIF-Multimedia-Metadata-Viewer-Setup
+OutputBaseFilename={#InstallerBaseName}
 UninstallDisplayIcon={app}\{#AppExeName}
 LicenseFile=..\LICENSE
 Compression=lzma2/max

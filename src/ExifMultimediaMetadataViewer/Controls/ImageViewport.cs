@@ -77,6 +77,23 @@ public sealed class ImageViewport : FrameworkElement
         FitToViewport();
     }
 
+    public void SetActualPixelScale(double scale)
+    {
+        if (Source is null)
+            return;
+        var center = new Point(ActualWidth / 2, ActualHeight / 2);
+        var nextZoom = Math.Clamp(scale, 0.005, 8.0);
+        var pan = ViewportGeometry.ZoomPanAt(
+            new ViewportPoint(center.X, center.Y), Source.PixelWidth, Source.PixelHeight,
+            ActualWidth, ActualHeight, Zoom, nextZoom, Rotation, _panX, _panY);
+        _isFit = false;
+        _panX = pan.X;
+        _panY = pan.Y;
+        SetZoom(nextZoom);
+        ClampPan();
+        InvalidateVisual();
+    }
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);

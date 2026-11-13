@@ -1,15 +1,18 @@
-# EXIF Multimedia Metadata Viewer
+# EXIF 全媒体元数据查看器 v1.2.0
 
 Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视频仅在本机只读解析；不会上传媒体文件，也不会修改原文件。
 现在版本的文件目录做的很烂，耐心等待后续更新
 
 ## 当前功能
 
-- 左侧照片预览，支持适应窗口、缩放、旋转；RAW 无法直接解码时尝试 ExifTool 可提取的嵌入预览。
+- 资源管理器式文件浏览器：返回、前进、上级、刷新、可编辑地址栏、按需展开文件夹树和可拖动分隔条。
+- 缩略图横向多列自动换行，并提供缩略图、列表、详细信息三种视图、自然排序和缩略图尺寸调节。
+- 左侧照片预览支持适应窗口、100%、200%、滚轮缩放、拖动、旋转和全屏；普通图片使用完整像素解码。
+- RAW 无法完整解码时尝试 ExifTool 可提取的嵌入预览，并在界面中明确标注预览来源和实际像素尺寸。
 - 视频用 FFmpeg 解码首帧作为预览；暂不提供播放、时间轴和帧/数据包级扫描。
 - ExifTool 读取全部分组、重复、未知和厂商标签；保留解析器的原始 JSON、标签 ID、原始数值、易读值和命名空间。
 - 视频使用 FFprobe 同时读取容器、流、章节和程序信息；完整原始 JSON 与字段浏览结果分别保留。
-- “基本信息”“全部元数据”“原始数据 / 诊断”三个视图；全部元数据支持虚拟化、搜索和复制。
+- 灰色分隔网格“基本信息”、虚拟化“全部元数据”和“原始数据 / 诊断”三个视图；全部元数据支持搜索和复制。
 - 导出完整 JSON 或 CSV；重复字段及其来源不会合并。导出文件不可覆盖当前媒体文件。
 - 打开文件、文件夹、拖放、最近打开、同目录上/下一个、取消解析、浅色/深色主题。最近文件绝对路径只保存在当前 Windows 用户的 LocalAppData，不会上传。
 
@@ -27,11 +30,11 @@ Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视�
 
 ## 构建
 
-运行 .\build-release.ps1。脚本发布自包含的 win-x64 版本到 artifacts\publish\win-x64；发布目录需要连同 tools\exiftool 和 tools\ffmpeg 一起保留。
+运行 `.\build-release.ps1`。脚本从项目统一版本号读取 `1.2.0`，先发布到临时目录并检查 EXE、ExifTool、FFmpeg/FFprobe 和文件版本，再移动到 `releases\v1.2.0\app`。目标版本目录已存在时脚本会拒绝覆盖；显式候选构建可使用 `-CandidateSuffix rc1` 创建独立目录。
 
-先安装 Inno Setup 6（例如运行 `winget install --id JRSoftware.InnoSetup -e`），再运行 .\build-installer.ps1 生成 Windows 安装程序。默认输出到 artifacts\installer\EXIF-Multimedia-Metadata-Viewer-Setup.exe；安装程序包含完整的自包含运行时、ExifTool、FFmpeg/FFprobe 和第三方许可资料。安装包是本机构建产物，不会提交到 Git。
+先安装 Inno Setup 6，再运行 `.\build-installer.ps1 -SkipPublish` 生成安装程序。v1.2.0 默认输出到 `releases\v1.2.0\EXIF全媒体元数据查看器_v1.2.0_Setup.exe`。主程序为 `releases\v1.2.0\app\EXIF全媒体元数据查看器_v1.2.0.exe`。脚本拒绝静默覆盖同名产物。
 
-双击 “EXIF Multimedia Metadata Viewer.exe” 启动。也可以在 Windows 文件选择器中打开媒体，或把媒体文件拖到窗口。
+双击 `EXIF全媒体元数据查看器_v1.2.0.exe` 启动。也可以在 Windows 文件选择器中打开媒体，或把媒体文件拖到窗口。
 
 ## 测试
 
@@ -50,7 +53,8 @@ Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视�
 ## 已知限制
 
 - 视频当前预览首帧，不播放视频；耗时的帧级/数据包级诊断未实现。
-- RAW 预览依赖 ExifTool 可提取且 WIC 可解码的嵌入预览；元数据读取与预览互相独立。
+- RAW 的完整渲染取决于 Windows WIC 解码器；否则使用 ExifTool 可提取且 WIC 可解码的嵌入预览。元数据读取与预览互相独立。
+- 缩略图模式用轻量 WrapPanel 实现横向自动换列；缩略图只为当前可视卡片解码并缓存，但 WPF 仍会为目录项目创建轻量卡片容器。极端超大目录的容器级虚拟化留待后续版本。
 - HEIC/HEIF/AVIF/WebP 等预览取决于 Windows 上可用的 WIC 解码器；不能预览时仍尝试显示元数据。
 - 解析完整性仅对 ExifTool / FFprobe 返回的数据负责；解析器本身不识别的格式或厂商数据仍会报告限制。
 - 当前集成样片中没有 MOV、字幕或章节样片；这些结构可由 FFprobe 返回并完整保留，但尚未用真实对应样片验证。

@@ -52,3 +52,39 @@ Test date: 2026-10-28
 - The installed version's process was present at the default per-user install path. A screen capture of the built version could not be obtained: Windows Computer Use window capture timed out on both attempts, and the existing installed instance was left untouched. On-screen rendering and pointer/keyboard interactions therefore remain unverified in this run.
 - Browser thumbnail decode is asynchronous and limited to 280 pixels wide; only realized virtualized thumbnail rows request a decode. Video thumbnails use the bundled FFmpeg first-frame path. Unsupported formats remain identified in the browser and are not reported as metadata-free media.
 - Known limits: video playback/seeking remains out of scope; RAW preview depends on native WIC support or an embedded JPEG exposed by ExifTool. Horizontal mouse-wheel handling, DPI-specific fullscreen behavior, and real media interaction require a successful GUI verification pass.
+
+## v1.2.0 Release Verification (2026-11-01)
+
+### Build and automated regression
+
+- Release `win-x64` build using the repository-local .NET SDK 10.0.403: passed with zero warnings and zero errors.
+- Integration tests passed against all six supplied real media files in `D:\EXIF\验证照片`.
+- Verified ExifTool results included 25,713 fields for the Sony ARW, 17,779 fields for the Nikon NEF, 313 fields for the Sony JPEG, and 213 fields for the DJI DNG.
+- Verified video results included 211 ExifTool plus 151 FFprobe fields for `C0211.MP4`, and 164 ExifTool plus 194 FFprobe fields for `DJI_20260929170441_0085_D.MP4`.
+- JSON/CSV export, repeated-tag preservation, Chinese path handling, overwrite protection, corrupt-file partial-result handling, and viewport geometry assertions passed.
+
+### Explorer browser and GUI verification
+
+- A real 100-photo folder was loaded from `D:\EXIF\.cache\EXIF-v1.2.0-100-photo-test-9b0757db38aa421c8e8a8ba167af9af9`; the application reported `100 项`.
+- Folder-tree expansion and address-bar synchronization were confirmed through the live WPF accessibility tree.
+- Natural filename ordering was confirmed as `IMG_1.jpg`, `IMG_2.jpg`, ... `IMG_9.jpg`, `IMG_10.jpg`, ... `IMG_100.jpg`.
+- Thumbnail, list, and details mode controls plus the thumbnail-size slider were present and enabled in the live application.
+- The real 9,504 × 6,336 Sony JPEG loaded with status `完整图像解码 · 9,504 × 6,336 像素`; 313 metadata fields, `SONY`, `ILCE-7RM5`, lens/exposure/time/IPTC/XMP values, legal zero values, and missing-value `无` rendering were confirmed.
+- F11 entered the full-screen overlay and exposed the `退出全屏` control; Escape removed the overlay.
+- The published EXE, not the development `bin` output, was launched with `D:\EXIF\验证照片\_SNA6816.jpg` and repeated the same full-resolution/313-field/ILCE-7RM5 smoke-test result.
+
+### Release artifacts and overwrite protection
+
+- Self-contained application: `releases\v1.2.0\app\EXIF全媒体元数据查看器_v1.2.0.exe`.
+- Application file version: `1.2.0.0`.
+- Application SHA-256: `5798B474B12400F075DDCD2B6B54E44D356AC23E511EEAE6AC70C3F81C15F1CF`.
+- Installer: `releases\v1.2.0\EXIF全媒体元数据查看器_v1.2.0_Setup.exe` (102,759,113 bytes, ProductVersion 1.2.0).
+- Installer SHA-256: `3EF714C896FCB3E4D99DEF6D68A4DC7DA11E45DCEF400A0B33397D7660ED6C36`.
+- Re-running both release and installer builds was rejected before overwrite. The complete 923-file release manifest and installer hash remained unchanged.
+- The original `D:\EXIF\EXIF-Multimedia-Metadata-Viewer Ver1.1.0-Setup.exe` remained 102,739,352 bytes with SHA-256 `3B24E36A19769923310584E8836CE7E938930A79D3BDBC17B51695938BD4F821`.
+
+### Explicit verification limits
+
+- Windows Graphics Capture continued to fail with `FrameArrived timed out`, and accessibility button clicks reported `coordinate input geometry is unavailable`.
+- Therefore, splitter dragging, pointer-based multi-column visual inspection, and direct clicks on 100%, 200%, rotate, theme, list, and details buttons were not claimed as passed. Their WPF controls, bindings, `GridSplitter` constraints, and horizontal `WrapPanel` structure were code/accessibility verified only.
+- The installer was built and inspected but was not installed over the existing v1.1.0 installation. Its Authenticode status is `NotSigned` because no code-signing certificate was supplied.
