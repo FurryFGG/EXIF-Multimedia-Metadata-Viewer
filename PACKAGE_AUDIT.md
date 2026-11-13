@@ -51,3 +51,23 @@
 2. 将 FFmpeg 的 `scale=1600:-2` 改为输出尺寸参数后，用真实视频验证是否可去除 `avfilter`；用依赖/运行测试确认 `avdevice` 是否可去除。
 3. 保留 self-contained x64，避免要求用户预装 .NET 10；同时记录 framework-dependent 候选体积，但不作为默认发布物。
 4. 生成 v1.2.1 后重新统计每组文件、安装包、减少字节和百分比，并把实测结果补入本文及 `PERFORMANCE_REPORT.md`。
+
+## v1.2.1 实际结果
+
+| 项目 | v1.2.0 | v1.2.1 | 减少 |
+|---|---:|---:|---:|
+| app 文件数 | 922 | 776 | 146 |
+| app 字节数 | 339,858,020 | 331,718,552 | 8,139,468（2.39%） |
+| 安装包字节数 | 102,759,113 | 101,712,363 | 1,046,750（1.02%） |
+| PDB 文件 | 2 / 79,412 B | 0 | 2 / 79,412 B |
+| .NET 语言资源目录 | 14 | 1（`zh-Hans`） | 13 个目录 |
+
+FFmpeg（158,646,729 B）与 ExifTool（34,532,036 B）保持完整。隔离复制 FFmpeg 后移除 `avdevice-63.dll`，`ffprobe.exe -version` 立即以 Windows 状态 `0xC0000135` 退出，证明该共享构建在加载时需要它；因此没有删除。`avfilter` 仍是当前视频首帧缩放链 `scale=1600:-2` 的实际依赖。
+
+默认发行方式继续采用 win-x64 self-contained、非 trimmed、非 single-file：
+
+- framework-dependent 虽可显著缩小 .NET 文件，但会把 .NET 10 Desktop Runtime 安装责任转给用户，不作为默认包。
+- WPF 与资源反射链未经完整 trim 兼容验证，`PublishTrimmed=false`。
+- 独立 ExifTool/FFmpeg 本就无法真正合入一个应用单文件，single-file 不会消除主要第三方体积。
+
+实际安装使用 Inno Setup 6.7.3，退出码 0；安装后 EXE 文件版本为 1.2.1.0，并成功创建响应窗口。缓存目录不在 `releases/v1.2.1/app` 中。

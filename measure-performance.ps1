@@ -73,6 +73,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             $windowMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 1)
         }
         if ($process.MainWindowHandle -ne 0 -and $process.Responding) {
+            if ($null -eq $windowMs) {
+                $windowMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 1)
+            }
             $interactiveMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 1)
             break
         }
