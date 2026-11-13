@@ -424,12 +424,24 @@ public partial class MainWindow : Window
     {
         if (!ThumbnailList.IsVisible)
             return;
-        foreach (var item in ThumbnailList.Items)
+        var entries = FindVisualChildren<ListBoxItem>(ThumbnailList)
+            .Where(container => IsElementVisibleIn(container, ThumbnailList))
+            .Select(container => container.DataContext)
+            .OfType<BrowserEntry>()
+            .Distinct()
+            .ToArray();
+        await Task.WhenAll(entries.Select(_viewModel.LoadThumbnailAsync));
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
         {
-            if (ThumbnailList.ItemContainerGenerator.ContainerFromItem(item) is not ListBoxItem container ||
-                !IsElementVisibleIn(container, ThumbnailList) || item is not BrowserEntry entry)
-                continue;
-            await _viewModel.LoadThumbnailAsync(entry);
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+                yield return match;
+            foreach (var descendant in FindVisualChildren<T>(child))
+                yield return descendant;
         }
     }
 

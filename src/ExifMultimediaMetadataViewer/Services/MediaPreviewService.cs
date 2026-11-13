@@ -1,5 +1,6 @@
 using System.Diagnostics;
-using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Media.Imaging;
 using ExifMetadata.Core.Models;
 using ExifMetadata.Core.Services;
@@ -10,39 +11,140 @@ public sealed record PreviewLoadResult(BitmapSource? Image, string Description, 
 
 public sealed class MediaPreviewService
 {
-    private static readonly ConcurrentDictionary<string, WeakReference<BitmapSource>> ThumbnailCache =
-        new(StringComparer.OrdinalIgnoreCase);
+    private const int ThumbnailDecodeWidth = 320;
+    private const long DiskCacheLimitBytes = 512L * 1024 * 1024;
+    private static readonly SemaphoreSlim ThumbnailWorkers = new(3, 3);
+    private static readonly BoundedLruCache<string, BitmapSource> ThumbnailCache =
+        new(192, StringComparer.OrdinalIgnoreCase);
+    private static readonly string ThumbnailCacheDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "EXIF Multimedia Metadata Viewer", "thumbnail-cache", "v1");
+    private static int _cleanupStarted;
 
     public async Task<(BitmapSource? Image, int? Width, int? Height)> LoadThumbnailAsync(
         string path,
+        string exifToolPath,
         string ffmpegPath,
         CancellationToken cancellationToken)
     {
         var info = new FileInfo(path);
-        var cacheKey = $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
-        if (ThumbnailCache.TryGetValue(cacheKey, out var reference) && reference.TryGetTarget(out var cached))
+        var cacheKey = $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}|{ThumbnailDecodeWidth}";
+        if (ThumbnailCache.TryGet(cacheKey, out var cached))
             return (cached, cached.PixelWidth, cached.PixelHeight);
 
+        StartDiskCacheCleanup();
+        await ThumbnailWorkers.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (ThumbnailCache.TryGet(cacheKey, out cached))
+                return (cached, cached.PixelWidth, cached.PixelHeight);
+            var diskPath = GetDiskCachePath(cacheKey);
+            var diskImage = File.Exists(diskPath)
+                ? await Task.Run(() => TryDecodeFile(diskPath, ThumbnailDecodeWidth), cancellationToken).ConfigureAwait(false)
+                : null;
+            if (diskImage is not null)
+            {
+                TryTouch(diskPath);
+                ThumbnailCache.Set(cacheKey, diskImage);
+                return (diskImage, diskImage.PixelWidth, diskImage.PixelHeight);
+            }
+
             BitmapSource? image;
             if (MediaAnalyzer.IsVideoFile(path))
             {
                 var frame = await ExtractVideoFrameAsync(ffmpegPath, path, cancellationToken).ConfigureAwait(false);
-                image = Decode(frame, 280);
+                image = Decode(frame, ThumbnailDecodeWidth);
             }
             else
             {
-                image = await Task.Run(() => DecodeFile(path, 280), cancellationToken).ConfigureAwait(false);
+                image = await Task.Run(() => TryDecodeFile(path, ThumbnailDecodeWidth), cancellationToken).ConfigureAwait(false);
+                if (image is null && File.Exists(exifToolPath))
+                {
+                    foreach (var tag in new[] { "PreviewImage", "PreviewImage2", "JpgFromRaw", "ThumbnailImage" })
+                    {
+                        var bytes = await ExtractExifToolBinaryAsync(exifToolPath, path, tag, cancellationToken).ConfigureAwait(false);
+                        image = Decode(bytes, ThumbnailDecodeWidth);
+                        if (image is not null)
+                            break;
+                    }
+                }
             }
             if (image is not null)
-                ThumbnailCache[cacheKey] = new WeakReference<BitmapSource>(image);
+            {
+                ThumbnailCache.Set(cacheKey, image);
+                await Task.Run(() => SaveDiskThumbnail(diskPath, image), CancellationToken.None).ConfigureAwait(false);
+            }
             return (image, image?.PixelWidth, image?.PixelHeight);
         }
         catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException or System.ComponentModel.Win32Exception)
         {
             return (null, null, null);
         }
+        finally
+        {
+            ThumbnailWorkers.Release();
+        }
+    }
+
+    private static string GetDiskCachePath(string key)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+        return Path.Combine(ThumbnailCacheDirectory, hash + ".png");
+    }
+
+    private static void SaveDiskThumbnail(string destination, BitmapSource image)
+    {
+        try
+        {
+            Directory.CreateDirectory(ThumbnailCacheDirectory);
+            var temporary = destination + ".tmp-" + Guid.NewGuid().ToString("N");
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(image));
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                encoder.Save(stream);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+        }
+    }
+
+    private static void StartDiskCacheCleanup()
+    {
+        if (Interlocked.Exchange(ref _cleanupStarted, 1) != 0)
+            return;
+        _ = Task.Run(CleanupDiskCache);
+    }
+
+    private static void CleanupDiskCache()
+    {
+        try
+        {
+            if (!Directory.Exists(ThumbnailCacheDirectory))
+                return;
+            var expiry = DateTime.UtcNow.AddDays(-30);
+            var files = new DirectoryInfo(ThumbnailCacheDirectory).EnumerateFiles("*.png")
+                .OrderByDescending(file => file.LastAccessTimeUtc).ToList();
+            long retained = 0;
+            foreach (var file in files)
+            {
+                if (file.LastAccessTimeUtc < expiry || retained + file.Length > DiskCacheLimitBytes)
+                {
+                    try { file.Delete(); } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+                }
+                else
+                    retained += file.Length;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void TryTouch(string path)
+    {
+        try { File.SetLastAccessTimeUtc(path, DateTime.UtcNow); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 
     public async Task<PreviewLoadResult> LoadAsync(
@@ -102,6 +204,15 @@ public sealed class MediaPreviewService
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
+    }
+
+    private static BitmapSource? TryDecodeFile(string path, int? decodePixelWidth)
+    {
+        try { return DecodeFile(path, decodePixelWidth); }
+        catch (Exception exception) when (exception is NotSupportedException or IOException or FileFormatException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static BitmapSource? Decode(byte[]? bytes, int? decodePixelWidth)

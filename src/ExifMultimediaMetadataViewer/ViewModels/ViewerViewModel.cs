@@ -16,6 +16,7 @@ public sealed class ViewerViewModel : ObservableObject
     private readonly RecentFilesStore _recentFilesStore = new();
     private readonly FileBrowserService _fileBrowserService = new();
     private readonly ViewerSettingsStore _settingsStore = new();
+    private readonly BoundedLruCache<string, MediaAnalysis> _metadataCache = new(4, StringComparer.OrdinalIgnoreCase);
     private readonly ICollectionView _filteredFields;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _browserCancellation;
@@ -366,9 +367,10 @@ public sealed class ViewerViewModel : ObservableObject
         var generation = _browserGeneration;
         var token = _browserCancellation?.Token ?? CancellationToken.None;
         var ffmpeg = Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg", "ffmpeg.exe");
+        var exifTool = Path.Combine(AppContext.BaseDirectory, "tools", "exiftool", "exiftool.exe");
         try
         {
-            var result = await _previewService.LoadThumbnailAsync(entry.FullPath, ffmpeg, token)
+            var result = await _previewService.LoadThumbnailAsync(entry.FullPath, exifTool, ffmpeg, token)
                 .ConfigureAwait(true);
             if (generation == _browserGeneration && !token.IsCancellationRequested)
                 entry.CompleteThumbnailLoad(result.Image, result.Width, result.Height);
@@ -539,7 +541,13 @@ public sealed class ViewerViewModel : ObservableObject
             var ffprobe = Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg", "ffprobe.exe");
             var ffmpeg = Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg", "ffmpeg.exe");
 
-            var analysis = await _analyzer.AnalyzeAsync(FilePath, exifTool, ffprobe, token).ConfigureAwait(true);
+            var fileInfo = new FileInfo(FilePath);
+            var metadataKey = $"{fileInfo.FullName}|{fileInfo.Length}|{fileInfo.LastWriteTimeUtc.Ticks}";
+            if (!_metadataCache.TryGet(metadataKey, out var analysis))
+            {
+                analysis = await _analyzer.AnalyzeAsync(FilePath, exifTool, ffprobe, token).ConfigureAwait(true);
+                _metadataCache.Set(metadataKey, analysis);
+            }
             if (token.IsCancellationRequested || generation != _loadGeneration)
                 return;
             Analysis = analysis;
