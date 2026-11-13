@@ -15,12 +15,20 @@ public sealed record ViewerSettings
     public bool IsDarkTheme { get; init; }
 }
 
-public sealed class ViewerSettingsStore
+public sealed class ViewerSettingsStore : IDisposable
 {
+    private readonly object _saveLock = new();
+    private readonly Timer _saveTimer;
+    private ViewerSettings? _pendingSettings;
     private readonly string _settingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "EXIF Multimedia Metadata Viewer",
         "viewer-settings.json");
+
+    public ViewerSettingsStore()
+    {
+        _saveTimer = new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
+    }
 
     public ViewerSettings Load()
     {
@@ -50,10 +58,41 @@ public sealed class ViewerSettingsStore
 
     public void Save(ViewerSettings settings)
     {
-        var directory = Path.GetDirectoryName(_settingsPath)!;
-        Directory.CreateDirectory(directory);
-        var temporaryPath = _settingsPath + ".tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings));
-        File.Move(temporaryPath, _settingsPath, overwrite: true);
+        lock (_saveLock)
+        {
+            _pendingSettings = settings;
+            _saveTimer.Change(TimeSpan.FromMilliseconds(600), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    public void Flush()
+    {
+        ViewerSettings? settings;
+        lock (_saveLock)
+        {
+            settings = _pendingSettings;
+            _pendingSettings = null;
+        }
+        if (settings is null)
+            return;
+        try
+        {
+            var directory = Path.GetDirectoryName(_settingsPath)!;
+            Directory.CreateDirectory(directory);
+            var temporaryPath = _settingsPath + ".tmp";
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings));
+            File.Move(temporaryPath, _settingsPath, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Settings persistence must never take down the application from a timer callback.
+        }
+    }
+
+    public void Dispose()
+    {
+        _saveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+        Flush();
+        _saveTimer.Dispose();
     }
 }

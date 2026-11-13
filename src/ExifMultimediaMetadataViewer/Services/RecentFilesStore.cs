@@ -18,8 +18,10 @@ public sealed class RecentFilesStore
                 return [];
 
             var paths = JsonSerializer.Deserialize<string[]>(File.ReadAllText(_settingsPath)) ?? [];
+            // Avoid probing disconnected drives or network paths during startup.
+            // Stale entries are removed when the user selects them.
             return paths
-                .Where(File.Exists)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(MaximumEntries)
                 .ToArray();

@@ -56,6 +56,8 @@ public partial class MainWindow : Window
     {
         _windowSource = (HwndSource?)PresentationSource.FromVisual(this);
         _windowSource?.AddHook(WindowMessageHook);
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        _viewModel.InitializeBrowserRoots();
         var commandLineFile = Environment.GetCommandLineArgs()
             .Skip(1)
             .FirstOrDefault(File.Exists);
@@ -77,6 +79,7 @@ public partial class MainWindow : Window
         _windowSource = null;
         if (_viewModel.IsBrowserExpanded)
             _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
+        _viewModel.Shutdown();
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
     }
 

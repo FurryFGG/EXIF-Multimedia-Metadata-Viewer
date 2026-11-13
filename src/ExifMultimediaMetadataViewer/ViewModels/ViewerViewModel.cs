@@ -69,8 +69,8 @@ public sealed class ViewerViewModel : ObservableObject
         _browserHeight = settings.BrowserHeight;
         _thumbnailSize = settings.ThumbnailSize;
         _isDarkTheme = settings.IsDarkTheme;
-        BrowserEntries = new ObservableCollection<BrowserEntry>();
-        DirectoryRoots = new ObservableCollection<DirectoryTreeNode>(_fileBrowserService.GetDriveRoots());
+        BrowserEntries = new BulkObservableCollection<BrowserEntry>();
+        DirectoryRoots = new ObservableCollection<DirectoryTreeNode>();
         SummarySections = [];
         BrowserSortModes = ["名称", "类型", "修改时间", "大小"];
         BrowserViewModes = ["缩略图", "列表", "详细信息"];
@@ -79,7 +79,7 @@ public sealed class ViewerViewModel : ObservableObject
     public BulkObservableCollection<MetadataField> Fields { get; }
     public BulkObservableCollection<MetadataField> SummaryFields { get; }
     public ObservableCollection<string> RecentFiles { get; }
-    public ObservableCollection<BrowserEntry> BrowserEntries { get; }
+    public BulkObservableCollection<BrowserEntry> BrowserEntries { get; }
     public ObservableCollection<DirectoryTreeNode> DirectoryRoots { get; }
     public IReadOnlyList<MetadataSummarySection> SummarySections { get; private set; }
     public IReadOnlyList<string> BrowserSortModes { get; }
@@ -118,11 +118,13 @@ public sealed class ViewerViewModel : ObservableObject
             if (SetProperty(ref _thumbnailSize, Math.Clamp(value, 96, 260)))
             {
                 OnPropertyChanged(nameof(ThumbnailImageHeight));
+                OnPropertyChanged(nameof(ThumbnailItemHeight));
                 SaveSettings();
             }
         }
     }
     public double ThumbnailImageHeight => Math.Round(ThumbnailSize * 0.68);
+    public double ThumbnailItemHeight => ThumbnailImageHeight + 70;
     public string BrowserButtonText => IsBrowserExpanded ? "隐藏浏览器" : "文件浏览器";
     public string FileCountText => $"{BrowserEntries.Count:N0} 项";
     public bool CanGoParent => !string.IsNullOrWhiteSpace(CurrentDirectory) && Directory.GetParent(CurrentDirectory) is not null;
@@ -229,17 +231,23 @@ public sealed class ViewerViewModel : ObservableObject
         try
         {
             var targetDirectory = Path.GetFullPath(Environment.ExpandEnvironmentVariables(directory.Trim()));
-            if (!Directory.Exists(targetDirectory))
-                throw new DirectoryNotFoundException($"找不到文件夹：{targetDirectory}");
             BrowserStatus = $"正在读取 {targetDirectory}…";
-            var entries = await _fileBrowserService.EnumerateAsync(targetDirectory, BrowserSortMode, token).ConfigureAwait(true);
-            if (generation != _browserGeneration || token.IsCancellationRequested)
-                return;
             CurrentDirectory = targetDirectory;
             AddressText = targetDirectory;
             BrowserEntries.Clear();
-            foreach (var entry in entries)
-                BrowserEntries.Add(entry);
+            var entries = new List<BrowserEntry>();
+            await foreach (var batch in _fileBrowserService.EnumerateBatchesAsync(targetDirectory, token).ConfigureAwait(true))
+            {
+                if (generation != _browserGeneration || token.IsCancellationRequested)
+                    return;
+                entries.AddRange(batch);
+                BrowserEntries.AddRange(batch);
+                BrowserStatus = $"正在读取 {targetDirectory}… {entries.Count:N0} 项";
+                OnPropertyChanged(nameof(FileCountText));
+            }
+            if (generation != _browserGeneration || token.IsCancellationRequested)
+                return;
+            BrowserEntries.ReplaceAll(_fileBrowserService.SortEntries(entries, BrowserSortMode));
             SelectedBrowserEntry = selectPath is null ? null : BrowserEntries.FirstOrDefault(entry =>
                 string.Equals(entry.FullPath, Path.GetFullPath(selectPath), StringComparison.OrdinalIgnoreCase));
             BrowserStatus = $"{CurrentDirectory} · {BrowserEntries.Count:N0} 项";
@@ -261,6 +269,14 @@ public sealed class ViewerViewModel : ObservableObject
             AddressText = CurrentDirectory;
             StatusText = BrowserStatus;
         }
+    }
+
+    public void InitializeBrowserRoots()
+    {
+        if (DirectoryRoots.Count > 0)
+            return;
+        foreach (var root in _fileBrowserService.GetDriveRoots())
+            DirectoryRoots.Add(root);
     }
 
     public async Task GoBackDirectoryAsync()
@@ -710,6 +726,13 @@ public sealed class ViewerViewModel : ObservableObject
         {
             StatusText = $"界面设置无法保存：{exception.Message}";
         }
+    }
+
+    public void Shutdown()
+    {
+        _browserCancellation?.Cancel();
+        _loadCancellation?.Cancel();
+        _settingsStore.Dispose();
     }
 
     private void RememberRecentFile(string path)

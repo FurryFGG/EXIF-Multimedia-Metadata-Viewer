@@ -6,6 +6,22 @@ namespace ExifMultimediaMetadataViewer.ViewModels;
 
 public sealed class BulkObservableCollection<T> : ObservableCollection<T>
 {
+    public void AddRange(IEnumerable<T> items)
+    {
+        CheckReentrancy();
+        var changed = false;
+        foreach (var item in items)
+        {
+            Items.Add(item);
+            changed = true;
+        }
+        if (!changed)
+            return;
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+        OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
     public void ReplaceAll(IEnumerable<T> items)
     {
         CheckReentrancy();
