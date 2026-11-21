@@ -378,8 +378,8 @@ public sealed class ViewerViewModel : ObservableObject
         var exifTool = Path.Combine(AppContext.BaseDirectory, "tools", "exiftool", "exiftool.exe");
         try
         {
-            var result = await _previewService.LoadThumbnailAsync(entry.FullPath, exifTool, ffmpeg, token)
-                .ConfigureAwait(true);
+            var result = entry.IsDirectory ? await _previewService.FolderAsync(entry.FullPath, exifTool, ffmpeg, token)
+                : await _previewService.LoadThumbnailAsync(entry.FullPath, exifTool, ffmpeg, token);
             if (generation == _browserGeneration && !token.IsCancellationRequested)
                 entry.CompleteThumbnailLoad(result.Image, result.Width, result.Height);
             else

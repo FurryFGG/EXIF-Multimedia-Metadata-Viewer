@@ -414,8 +414,14 @@ public partial class MainWindow : Window
 
     private async void Thumbnail_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is Image image && image.DataContext is BrowserEntry entry && IsElementVisibleIn(image, ThumbnailList))
+        if (sender is Image image && image.DataContext is BrowserEntry entry && (IsElementVisibleIn(image, ThumbnailList) || (entry.IsDirectory && IsElementVisibleIn(image, CompactList))))
             await _viewModel.LoadThumbnailAsync(entry);
+    }
+
+    private void CoverContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (sender is Image { IsLoaded: true } image && e.NewValue is BrowserEntry { IsDirectory: true })
+            Dispatcher.BeginInvoke(() => Thumbnail_Loaded(image, new RoutedEventArgs()));
     }
 
     private async void ThumbnailScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -535,5 +541,5 @@ public partial class MainWindow : Window
     }
 
     private void ShowError(string message) =>
-        MessageBox.Show(this, message, "EXIF 全媒体元数据查看器", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(this, message, "EXIF查看器", MessageBoxButton.OK, MessageBoxImage.Information);
 }

@@ -43,6 +43,15 @@ internal static class Program
     static async Task Test(string root,string profile,string? largeDir,string? samples) {
         var fixtures=Path.Combine(root,"样片");Directory.CreateDirectory(Path.Combine(fixtures,"Camera Roll"));
         var jpeg=Path.Combine(fixtures,"山色 01 & 日落.jpg");Sample(jpeg,0);Sample(Path.Combine(fixtures,"天空.png"),1);
+        var coverFolder=Path.Combine(fixtures,"Camera Roll"); Sample(Path.Combine(coverFolder,"01.png"),1);
+        var covers=new MediaPreviewService(); var single=(await covers.FolderAsync(coverFolder,"","",default)).Image;
+        Check(single is {PixelWidth:240,PixelHeight:150},"single folder thumbnail aspect");
+        for(int i=2;i<=4;i++) Sample(Path.Combine(coverFolder,$"0{i}.png"),i);
+        var grid=(await covers.FolderAsync(coverFolder,"","",default)).Image;
+        Check(grid is {PixelWidth:240,PixelHeight:240},"folder thumbnail did not invalidate to 2x2");
+        var empty=Directory.CreateDirectory(Path.Combine(root,"empty")).FullName;
+        Sample(Path.Combine(Directory.CreateDirectory(Path.Combine(empty,"nested")).FullName,"ignored.png"),2);
+        Check((await covers.FolderAsync(empty,"","",default)).Image is null,"recursive folder cover");
         for(int i=2;i<8;i++)Sample(Path.Combine(fixtures,$"山色 {i:00} 长文件名 山脊上的日落与薄雾.jpg"),i);
         File.WriteAllText(Path.Combine(fixtures,"说明.txt"),"fixture");
         var w=new MainWindow {Width=1450,Height=900};w.Show();await Settle(w);
@@ -50,6 +59,9 @@ internal static class Program
         await vm.OpenAsync([jpeg],jpeg);await Settle(w);Check(vm.Analysis!=null && vm.PreviewImage!=null,"media not ready");
         Console.WriteLine($"Window DPI {VisualTreeHelper.GetDpi(w).PixelsPerInchX}");
         var image=vm.PreviewImage;var analysis=vm.Analysis;var entry=vm.SelectedBrowserEntry;
+        var folderEntry=vm.BrowserEntries.Single(e=>e.FullPath==coverFolder);
+        for(int i=0;i<100 && folderEntry.Thumbnail==null;i++){await Settle(w);await Task.Delay(40);}
+        Check(folderEntry.Thumbnail is {PixelWidth:240,PixelHeight:240},"folder card not bound to real cover");
         var picker=Part<ComboBox>(w,"LayoutPicker");var list=Part<ListBox>(w,"ThumbnailList");var viewport=Kids<ImageViewport>(w).Single();
         var sizes=new PanelSizes[3];
         static void Drag(GridSplitter bar,double amount){ bool col=bar.ResizeDirection==GridResizeDirection.Columns;bar.RaiseEvent(new DragStartedEventArgs(0,0){RoutedEvent=Thumb.DragStartedEvent});bar.RaiseEvent(new DragDeltaEventArgs(col?amount:0,col?0:amount){RoutedEvent=Thumb.DragDeltaEvent});bar.UpdateLayout();bar.RaiseEvent(new DragCompletedEventArgs(col?amount:0,col?0:amount,false){RoutedEvent=Thumb.DragCompletedEvent}); }

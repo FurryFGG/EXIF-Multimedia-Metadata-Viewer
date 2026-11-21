@@ -16,8 +16,8 @@ if ($CandidateSuffix -and $CandidateSuffix -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*
 $releaseName = "v$version" + $(if ($CandidateSuffix) { "-$CandidateSuffix" } else { "" })
 $releaseRoot = Join-Path $repoRoot "releases\$releaseName"
 $publishPath = Join-Path $releaseRoot "app"
-$exeName = "EXIF全媒体元数据查看器_v$version.exe"
-$installerBaseName = "EXIF全媒体元数据查看器_v${version}_Setup"
+$exeName = "EXIF查看器_v$version.exe"
+$installerBaseName = "EXIF查看器_v${version}_Setup"
 $installerPath = Join-Path $releaseRoot "$installerBaseName.exe"
 $scriptPath = Join-Path $repoRoot "installer\EXIF-Multimedia-Metadata-Viewer.iss"
 

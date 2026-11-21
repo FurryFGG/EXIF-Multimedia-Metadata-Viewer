@@ -1,4 +1,4 @@
-#define AppName "EXIF Multimedia Metadata Viewer"
+#define AppName "EXIF查看器"
 #define AppExeName GetEnv("EXIF_APP_EXE_NAME")
 #define AppVersion GetEnv("EXIF_INSTALLER_VERSION")
 #define PublishDir GetEnv("EXIF_PUBLISH_DIR")
@@ -6,14 +6,14 @@
 #define InstallerBaseName GetEnv("EXIF_INSTALLER_BASE_NAME")
 
 [Setup]
-AppId={{88AB7794-7E8B-40E7-8BD2-A0FAF16DA0D3}
+AppId={{94DCE9A2-3890-4930-8573-127760A123AA}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=FurryFGG
 AppPublisherURL=https://github.com/FurryFGG/EXIF-Multimedia-Metadata-Viewer
-DefaultDirName={localappdata}\Programs\EXIF Multimedia Metadata Viewer
+DefaultDirName={localappdata}\Programs\EXIF查看器\Legacy-1.2.3
 DefaultGroupName={#AppName}
-UninstallDisplayName={#AppName}
+UninstallDisplayName={#AppName} v{#AppVersion}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -21,7 +21,7 @@ OutputDir={#InstallerOutputDir}
 OutputBaseFilename={#InstallerBaseName}
 UninstallDisplayIcon={app}\{#AppExeName}
 LicenseFile=..\LICENSE
-Compression=lzma2/max
+Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
@@ -38,8 +38,8 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName} v{#AppVersion}"; Filename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName} v{#AppVersion}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "启动 {#AppName}"; Flags: postinstall nowait skipifsilent

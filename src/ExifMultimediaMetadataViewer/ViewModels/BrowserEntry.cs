@@ -43,12 +43,14 @@ public sealed class BrowserEntry : ObservableObject
     public string PreviewSizeText => _imageWidth is > 0 && _imageHeight is > 0
         ? $"{_imageWidth} × {_imageHeight}"
         : "";
-    public BitmapSource? Thumbnail { get => _thumbnail; private set => SetProperty(ref _thumbnail, value); }
+    private WeakReference<BitmapSource>? _cover;
+    public BitmapSource? Thumbnail { get => IsDirectory ? (_cover?.TryGetTarget(out var img) == true ? img : null) : _thumbnail;
+        private set { if (!IsDirectory) SetProperty(ref _thumbnail, value); else { _cover = value is null ? null : new(value); OnPropertyChanged(); } } }
     public bool IsThumbnailLoading { get => _isThumbnailLoading; private set => SetProperty(ref _isThumbnailLoading, value); }
 
     public bool TryBeginThumbnailLoad()
     {
-        if (IsDirectory || _thumbnailLoaded || IsThumbnailLoading || !MediaAnalyzer.IsKnownMediaFile(FullPath))
+        if ((_thumbnailLoaded && (!IsDirectory || _cover is null || Thumbnail is not null)) || IsThumbnailLoading || (!IsDirectory && !MediaAnalyzer.IsKnownMediaFile(FullPath)))
             return false;
         IsThumbnailLoading = true;
         _previewStatus = "正在加载";

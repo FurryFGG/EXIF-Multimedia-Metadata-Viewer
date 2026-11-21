@@ -19,7 +19,7 @@ if ($CandidateSuffix -and $CandidateSuffix -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*
 $releaseName = "v$version" + $(if ($CandidateSuffix) { "-$CandidateSuffix" } else { "" })
 $releaseRoot = Join-Path $repoRoot "releases\$releaseName"
 $appOutput = Join-Path $releaseRoot "app"
-$exeName = "EXIF全媒体元数据查看器_v$version.exe"
+$exeName = "EXIF查看器_v$version.exe"
 if (Test-Path -LiteralPath $releaseRoot) {
     throw "Release already exists and will not be overwritten: $releaseRoot. Use -CandidateSuffix with a new value for an explicit candidate build."
 }
@@ -81,7 +81,7 @@ try {
         & $dotnetPath run --no-build --project $testProject -c Release -- $repoRoot @sampleArgs (Join-Path $stagingPath "tools")
         if ($LASTEXITCODE -ne 0) { throw "Integration tests against packaged tools failed." }
     }
-    $smokeProcess = Start-Process -FilePath $stagedExe -PassThru
+    $smokeProcess = Start-Process -FilePath $stagedExe -WindowStyle Hidden -Environment @{METALENS_PROFILE_DIR=(Join-Path $repoRoot 'artifacts/smoke-profile')} -PassThru
     $smokeDeadline = [DateTime]::UtcNow.AddSeconds(10)
     while ([DateTime]::UtcNow -lt $smokeDeadline -and -not $smokeProcess.HasExited) {
         $smokeProcess.Refresh()
@@ -102,7 +102,7 @@ try {
     Move-Item -LiteralPath $stagingPath -Destination $appOutput
     $hash = (Get-FileHash -LiteralPath (Join-Path $appOutput $exeName) -Algorithm SHA256).Hash
     $buildInfo = @"
-# EXIF 全媒体元数据查看器 $releaseName
+# EXIF查看器 $releaseName
 
 - Version: $version
 - Built: $([DateTimeOffset]::Now.ToString("yyyy-MM-dd HH:mm:ss zzz"))

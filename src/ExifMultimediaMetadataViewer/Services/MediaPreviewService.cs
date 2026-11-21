@@ -20,6 +20,22 @@ public sealed class MediaPreviewService
         ViewerData.Root, "thumbnail-cache", "v1");
     private static int _cleanupStarted;
 
+    public async Task<(BitmapSource? Image, int? Width, int? Height)> FolderAsync(string path, string exif, string ffmpeg, CancellationToken ct)
+    {
+        var bytes = await FolderCover.ReadAsync(path, async (file, token) =>
+        {
+            var child = (await LoadThumbnailAsync(file, exif, ffmpeg, token).ConfigureAwait(false)).Image;
+            if (child is null) return null;
+            var image = new FormatConvertedBitmap(child, System.Windows.Media.PixelFormats.Bgra32, null, 0);
+            var stride = image.PixelWidth * 4;
+            var pixels = new byte[checked(stride * image.PixelHeight)];
+            image.CopyPixels(pixels, stride, 0);
+            return new FolderCover.Pixels(image.PixelWidth, image.PixelHeight, pixels);
+        }, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        return (Decode(bytes, null), null, null);
+    }
+
     public async Task<(BitmapSource? Image, int? Width, int? Height)> LoadThumbnailAsync(
         string path,
         string exifToolPath,
