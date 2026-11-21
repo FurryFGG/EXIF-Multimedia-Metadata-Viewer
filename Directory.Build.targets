@@ -3,7 +3,7 @@
        Keep the CLR, JIT, XAML, media libraries, licenses and all metadata tag tables. -->
   <Target Name="ExcludeDeveloperPayload" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition=" '%(Filename)%(Extension)' == 'mscordbi.dll' Or $([System.String]::Copy('%(Filename)').StartsWith('mscordaccore')) Or '%(Filename)%(Extension)' == 'createdump.exe' Or '%(Filename)%(Extension)' == 'cFile.pc' " />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition=" '%(Filename)%(Extension)' == 'mscordbi.dll' Or $([System.String]::Copy('%(Filename)').StartsWith('mscordaccore')) Or '%(Filename)%(Extension)' == 'createdump.exe' " />
     </ItemGroup>
   </Target>
 </Project>
