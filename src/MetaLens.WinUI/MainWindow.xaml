@@ -1,0 +1,1 @@
+<Window x:Class="MetaLens.WinUI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="MetaLens v2.0.0"><Grid x:Name="Root"><TextBlock Text="MetaLens"/></Grid></Window>
