@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap rescap">
+  <Identity Name="EXIFViewer.LocalSizeExperiment" Publisher="CN=Local Packaging Experiment" Version="2.0.1.0" ProcessorArchitecture="x64"/>
+  <Properties><DisplayName>EXIF查看器（仅封装对比）</DisplayName><PublisherDisplayName>Local</PublisherDisplayName><Logo>ExperimentAssets\50.png</Logo></Properties>
+  <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.19045.0"/></Dependencies>
+  <Resources><Resource Language="zh-CN"/></Resources>
+  <Applications><Application Id="Viewer" Executable="EXIF查看器_v2.0.1.exe" EntryPoint="Windows.FullTrustApplication"><uap:VisualElements DisplayName="EXIF查看器" Description="Local size comparison" BackgroundColor="transparent" Square150x150Logo="ExperimentAssets\150.png" Square44x44Logo="ExperimentAssets\44.png"/></Application></Applications>
+  <Capabilities><rescap:Capability Name="runFullTrust"/></Capabilities>
+</Package>
