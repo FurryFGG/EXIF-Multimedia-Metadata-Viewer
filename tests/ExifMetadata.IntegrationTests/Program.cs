@@ -39,8 +39,47 @@ if (args.Length <= 1 && sampleFiles.Length == 0)
 
 foreach (var path in sampleFiles)
 {
+    var watch = System.Diagnostics.Stopwatch.StartNew();
     var analysis = await analyzer.AnalyzeAsync(path, exifToolPath, ffprobePath);
+    var currentMs = watch.ElapsedMilliseconds;
     reports.Add((Path.GetFileName(path), analysis));
+
+    // Windows may update a file's access time after a read. Only that field's value may differ.
+    if (args.Length > 3)
+    {
+        var reference = Path.GetFullPath(args[3]);
+        watch.Restart();
+        var baseline = await analyzer.AnalyzeAsync(path, Path.Combine(reference, "exiftool", "exiftool.exe"),
+            Path.Combine(reference, "ffmpeg", "ffprobe.exe"));
+        var oldMs = watch.ElapsedMilliseconds;
+        int accessDifferences = 0, differences = 0;
+        foreach (var (old, now) in baseline.AllFields.Zip(analysis.AllFields))
+        {
+            if (old == now) continue;
+            if (old.Source == "ExifTool" && old.TagName == "FileAccessDate" &&
+                (old with { RawValue = now.RawValue, FormattedValue = now.FormattedValue, RawJson = now.RawJson }) == now)
+                accessDifferences++;
+            else differences++;
+        }
+        if (differences != 0 || baseline.AllFields.Count != analysis.AllFields.Count ||
+            baseline.ExifTool.Status != analysis.ExifTool.Status || baseline.FFprobe.Status != analysis.FFprobe.Status)
+            failures.Add($"{Path.GetFileName(path)}: cross-version field or parser-status mismatch.");
+        var exportDir = Directory.CreateTempSubdirectory("MetaLens-field-parity-");
+        try
+        {
+            var jsonPath = Path.Combine(exportDir.FullName, "export.json");
+            var csvPath = Path.Combine(exportDir.FullName, "export.csv");
+            await MetadataExportService.ExportJsonAsync(analysis, jsonPath);
+            await MetadataExportService.ExportCsvAsync(analysis, csvPath);
+            using var json = JsonDocument.Parse(await File.ReadAllTextAsync(jsonPath));
+            int jsonCount = json.RootElement.GetProperty("fields").GetArrayLength();
+            int csvCount = CountCsvRecords(await File.ReadAllTextAsync(csvPath)) - 1;
+            AssertEqual(analysis.AllFields.Count, jsonCount, "JSON records", failures);
+            AssertEqual(analysis.AllFields.Count, csvCount, "CSV records", failures);
+            Console.WriteLine($"PARITY {Path.GetFileName(path)}: old={baseline.AllFields.Count} new={analysis.AllFields.Count} different={differences} lastAccessOnly={accessDifferences} json={jsonCount} csv={csvCount} oldMs={oldMs} newMs={currentMs}");
+        }
+        finally { exportDir.Delete(true); }
+    }
 
     if (analysis.ExifTool.WasExecuted && !string.IsNullOrWhiteSpace(analysis.ExifTool.RawJson))
     {

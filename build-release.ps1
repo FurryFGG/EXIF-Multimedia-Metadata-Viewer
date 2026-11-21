@@ -1,6 +1,7 @@
 param(
     [string]$CandidateSuffix = "",
-    [string]$SampleDirectory = ""
+    [string]$SampleDirectory = "",
+    [string]$ScenarioDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,10 +91,11 @@ try {
     foreach ($file in 'App.xbf','MainWindow.xbf','PreviewView.xbf','MetadataView.xbf','ExplorerView.xbf','resources.pri','Microsoft.UI.Xaml.dll','licenses/WindowsAppSDK.WinUI/license.txt','licenses/WindowsAppSDK.Runtime/NOTICE.txt') {
         if (!(Test-Path -LiteralPath (Join-Path $stagingPath $file) -PathType Leaf)) { throw "Missing WinUI resource: $file" }
     }
-    if ($SampleDirectory) {
+    if ($ScenarioDirectory -or $SampleDirectory) {
         $qaDir = Join-Path $repoRoot ('artifacts/qa200/publish-' + [IO.Path]::GetFileName($stagingPath))
+        $uiSamples = if ($ScenarioDirectory) { (Resolve-Path -LiteralPath $ScenarioDirectory).Path } else { $sampleArgs[0] }
         foreach ($mode in 'media','workspace','restore') {
-            & (Join-Path $repoRoot 'tests/Test-WinUIScenario.ps1') -Executable $stagedExe -SampleDirectory $sampleArgs[0] -Mode $mode -ArtifactDirectory $qaDir
+            & (Join-Path $repoRoot 'tests/Test-WinUIScenario.ps1') -Executable $stagedExe -SampleDirectory $uiSamples -Mode $mode -ArtifactDirectory $qaDir
         }
     }
     $smokeProcess = Start-Process -FilePath $stagedExe -WindowStyle Hidden -Environment @{METALENS_PROFILE_DIR=(Join-Path $repoRoot 'artifacts/qa200/smoke-profile')} -PassThru

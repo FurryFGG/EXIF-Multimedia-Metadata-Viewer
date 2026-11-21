@@ -3,7 +3,7 @@
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <CommandBar x:Name="Commands" DefaultLabelPosition="Right" HorizontalContentAlignment="Stretch"><CommandBar.Content><TextBlock Text="MetaLens" FontSize="22" FontWeight="SemiBold" Margin="16,4"/></CommandBar.Content>
    <AppBarButton Icon="OpenFile" Label="打开文件" Click="PickMedia"/><AppBarButton Icon="Folder" Label="打开文件夹" Click="PickFolder"/><AppBarButton Icon="Clock" Label="最近" x:Name="RecentButton" Click="ShowRecent"/><AppBarButton Label="布局" Icon="View" x:Name="LayoutButton"/><AppBarButton Label="目录" Icon="List" x:Name="BrowserButton"/>
-   <CommandBar.SecondaryCommands><AppBarButton Label="切换浅色 / 深色" Click="ThemeClick"/><AppBarButton Label="取消读取" Click="CancelClick"/></CommandBar.SecondaryCommands>
+   <CommandBar.SecondaryCommands><AppBarButton Label="切换浅色 / 深色" Click="ThemeClick"/><AppBarButton Label="取消读取" Click="CancelClick"/><AppBarButton Label="关于 MetaLens" Click="AboutClick"/></CommandBar.SecondaryCommands>
   </CommandBar>
   <Grid x:Name="Workspace" Grid.Row="1"/>
   <TextBlock x:Name="Status" Grid.Row="2" Text="准备就绪 · 本地只读" Margin="12,4" TextTrimming="CharacterEllipsis"/>

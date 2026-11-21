@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)] [string]$Executable,
     [Parameter(Mandatory = $true)] [string]$MediaFile,
     [Parameter(Mandatory = $true)] [string]$OutputPath,
-    [ValidateRange(2, 60)] [int]$SettleSeconds = 10
+    [ValidateRange(2, 60)] [int]$SettleSeconds = 10,
+    [string]$ListAutomationId = 'ThumbnailList'
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,10 +13,12 @@ $executablePath = [IO.Path]::GetFullPath($Executable)
 $mediaPath = [IO.Path]::GetFullPath($MediaFile)
 $outputFile = [IO.Path]::GetFullPath($OutputPath)
 $timer = [Diagnostics.Stopwatch]::StartNew()
-$process = Start-Process -FilePath $executablePath -ArgumentList @($mediaPath) -PassThru
+$process = Start-Process -FilePath $executablePath -ArgumentList ('"'+$mediaPath+'"') -PassThru
 $windowMs = $null
 $firstItemMs = $null
 $thumbnailList = $null
+$listItem = [System.Windows.Automation.PropertyCondition]::new(
+    [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
 $deadline = [DateTime]::UtcNow.AddSeconds(45)
 try {
     while ([DateTime]::UtcNow -lt $deadline -and -not $process.HasExited) {
@@ -27,16 +30,16 @@ try {
             try {
                 $root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
                 $condition = [System.Windows.Automation.PropertyCondition]::new(
-                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ThumbnailList")
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $ListAutomationId)
                 $thumbnailList = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
             } catch { }
         }
         if ($null -ne $thumbnailList) {
             try {
-                $children = $thumbnailList.FindAll(
+                $item = $thumbnailList.FindFirst(
                     [System.Windows.Automation.TreeScope]::Children,
-                    [System.Windows.Automation.Condition]::TrueCondition)
-                if ($children.Count -gt 0) {
+                    $listItem)
+                if ($null -ne $item) {
                     $firstItemMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 1)
                     break
                 }
@@ -46,17 +49,18 @@ try {
     }
     Start-Sleep -Seconds $SettleSeconds
     $process.Refresh()
+    if ($null -eq $firstItemMs) { throw "No accessible media item in $ListAutomationId within deadline" }
     $realizedItems = if ($null -eq $thumbnailList) { 0 } else {
         $thumbnailList.FindAll(
             [System.Windows.Automation.TreeScope]::Children,
-            [System.Windows.Automation.Condition]::TrueCondition).Count
+            $listItem).Count
     }
     $result = [pscustomobject]@{
         Executable = $executablePath
         MediaFile = $mediaPath
         MainWindowMs = $windowMs
         FirstBrowserItemMs = $firstItemMs
-        RealizedThumbnailContainers = $realizedItems
+        AccessibleListItems = $realizedItems
         WorkingSetBytes = $process.WorkingSet64
         PrivateBytes = $process.PrivateMemorySize64
         Threads = $process.Threads.Count

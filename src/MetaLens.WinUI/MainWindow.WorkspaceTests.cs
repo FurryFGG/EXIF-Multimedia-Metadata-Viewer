@@ -67,6 +67,17 @@ public sealed partial class MainWindow
             var jpg = Path.Combine(samples, "sample.jpg");
             Request(jpg);
             await Until(() => viewer.Current == jpg && viewer.Image != null && meta.Data?.FilePath == jpg);
+            var selectedEntry = browser.Model.Entries.Single(x => x.FullPath == jpg);
+            browser.SetView("列表");
+            var browserRows = (ListView)browser.FindName("Rows");
+            browserRows.ScrollIntoView(selectedEntry);
+            await Until(() => browserRows.ContainerFromItem(selectedEntry) != null && selectedEntry.PreviewStatus == "缩略图已加载");
+            browser.SetView("详细信息");
+            var headers = ((Grid)browserRows.Header).Children.OfType<TextBlock>().Select(x => x.Text).ToArray();
+            if (!headers.SequenceEqual(new[] { "名称", "类型", "大小", "修改时间", "预览状态" }))
+                throw new Exception("文件详细信息列不完整");
+            steps.Add(new { detailColumns = headers, compactPreview = selectedEntry.PreviewStatus });
+            browser.SetView("缩略图");
             var scans = browser.Model.ScanCount;
             var parses = metaModel.Parses;
             var identity = meta.Data;
