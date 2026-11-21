@@ -208,12 +208,15 @@ public static partial class MetadataSummaryBuilder
         var absolute = numbers.Length >= 3
             ? Math.Abs(numbers[0]) + Math.Abs(numbers[1]) / 60 + Math.Abs(numbers[2]) / 3600
             : Math.Abs(numbers[0]);
+        // ExifTool can supply a direction code (E) or an English word (East).
+        // A substring match makes the 's' in East reverse the longitude.
         var refValue = reference is null ? source : FieldValue(reference);
-        var negative = numbers[0] < 0
-            || refValue.Contains("S", StringComparison.OrdinalIgnoreCase)
-            || refValue.Contains("W", StringComparison.OrdinalIgnoreCase);
-        return $"{(negative ? -absolute : absolute).ToString("0.########", CultureInfo.InvariantCulture)}°";
+        var negative = numbers[0] < 0 || NegativeHemisphereRegex().IsMatch(refValue);
+        return $"{(negative && absolute != 0 ? -absolute : absolute).ToString("0.########", CultureInfo.InvariantCulture)}°";
     }
+
+    [GeneratedRegex(@"\b(?:S|South|W|West)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NegativeHemisphereRegex();
 
     [GeneratedRegex("[+-]?\\d+(?:\\.\\d+)?", RegexOptions.CultureInvariant)]
     private static partial Regex CoordinateNumberRegex();

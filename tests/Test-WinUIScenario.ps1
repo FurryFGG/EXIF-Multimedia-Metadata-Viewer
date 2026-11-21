@@ -1,6 +1,6 @@
 #requires -Version 7.4
 param(
-    [Parameter(Mandatory)][ValidateSet('media','formats','workspace','browser','restore','external')][string]$Mode,
+    [Parameter(Mandatory)][ValidateSet('media','formats','gps','workspace','browser','restore','external')][string]$Mode,
     [string]$ProjectRoot=(Split-Path $PSScriptRoot), [string]$Executable,
     [string]$SampleDirectory, [string]$Directory, [string]$ArtifactDirectory,
     [string]$ExternalProgram

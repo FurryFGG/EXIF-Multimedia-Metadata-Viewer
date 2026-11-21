@@ -18,6 +18,9 @@ public sealed partial class MainWindow
             case "formats":
                 FormatTest();
                 break;
+            case "gps":
+                GpsTest();
+                break;
             case "workspace":
                 WorkspaceTest();
                 break;
@@ -26,6 +29,33 @@ public sealed partial class MainWindow
                 OtherTests();
                 break;
         }
+    }
+
+    // Read the values bound to the real Summary ListView, after the packaged parser runs.
+    async void GpsTest()
+    {
+        var output = Environment.GetEnvironmentVariable("METALENS_QA_OUTPUT")!;
+        var folder = Environment.GetEnvironmentVariable("METALENS_QA_SAMPLES")!;
+        var results = new List<object>();
+        try
+        {
+            foreach (var (name, north, east) in new[] { ("ne", "12.5°", "30.25°"), ("sw", "-12.5°", "-30.25°"), ("zero", "0°", "0°"), ("plain", "无", "无") })
+            {
+                var file = Path.Combine(folder, name + ".jpg");
+                Request(file);
+                await Until(() => meta.Data?.FilePath == file && viewer.Current == file && viewer.Image != null);
+                var rows = ((ListView)meta.FindName("Summary")).Items.OfType<SummaryRow>().ToArray();
+                SummaryRow Row(string suffix) => rows.Single(r => r.Label.EndsWith(suffix, StringComparison.Ordinal));
+                var lat = Row("Latitude (Decimal)"); var lon = Row("Longitude (Decimal)");
+                var latDms = Row("Latitude (DMS)").Value; var lonDms = Row("Longitude (DMS)").Value;
+                if (lat.Value != north || lon.Value != east || (name == "plain" ? latDms != "无" || lonDms != "无" : !latDms.Contains("deg") || !lonDms.Contains("deg") || lat.Source.Length == 0 || lon.Source.Length == 0))
+                    throw new InvalidDataException($"GPS {name}: {lat.Value}, {lon.Value}; {latDms}, {lonDms}");
+                results.Add(new { name, latitude=lat.Value, longitude=lon.Value, latDms, lonDms });
+            }
+            await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed=true, results }));
+        }
+        catch (Exception ex) { await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed=false, error=ex.Message, results })); }
+        finally { Close(); }
     }
 
     // Use the real preview decoder, presenter and raster scale, not a metadata-only probe.
