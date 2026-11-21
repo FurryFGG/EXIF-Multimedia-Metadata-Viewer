@@ -1,5 +1,7 @@
 # Test Report
 
+v2.0.0 的真实窗口、六份媒体、安装/卸载和未测范围见[当前验收报告](docs/v2.0.0/VALIDATION.md)。以下保留历史测试记录。
+
 Test date: 2026-10-28
 
 ## Environment

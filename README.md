@@ -1,68 +1,37 @@
-# EXIF 全媒体元数据查看器 v1.2.2
+# MetaLens · EXIF 全媒体元数据查看器 v2.0.0
 
-Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视频仅在本机只读解析；不会上传媒体文件，也不会修改原文件。
+MetaLens 是一款中文 Windows x64 桌面应用。打开照片、RAW 或视频，即可在同一窗口查看原像素预览、常用拍摄信息、全部字段及解析器原始输出。媒体只在本机读取，不写回原文件，也不更改 Windows 默认打开方式。
 
-## 当前功能
+**本地交付：** `releases/v2.0.0/build.4/EXIF全媒体元数据查看器_v2.0.0_Setup.exe`。如不安装，直接运行同目录 `app/EXIF全媒体元数据查看器_v2.0.0.exe`，请保留整个 `app` 文件夹。安装包未签名；SHA-256 与安装验证记录见[验收报告](docs/v2.0.0/VALIDATION.md)。二进制不跟随源码 Git 仓库分发。
 
-- 顶部可在原版、三栏、双层布局间即时切换。各布局分别记住分栏和折叠状态；切换不重新解码当前照片。
-- 右键媒体 → 打开方式 → 选择其他应用，仅将这一份文件交给所选 EXE；不修改 Windows 默认程序或文件关联。
+## 怎么用
 
-- 资源管理器式文件浏览器：返回、前进、上级、刷新、可编辑地址栏、按需展开文件夹树和可拖动分隔条。
-- 缩略图使用多列虚拟化布局，并提供缩略图、列表、详细信息三种视图、自然排序和缩略图尺寸调节。
-- 目录内容按 64 项增量显示；缩略图只按可见范围加载，最多 3 路解码，并使用有界内存/磁盘缓存。
-- 照片预览区支持适应窗口、100%、200%、滚轮缩放、拖动、旋转和全屏；普通图片使用完整像素解码。
-- RAW 无法完整解码时尝试 ExifTool 可提取的嵌入预览，并在界面中明确标注预览来源和实际像素尺寸。
-- 视频用 FFmpeg 解码首帧作为预览；暂不提供播放、时间轴和帧/数据包级扫描。
-- ExifTool 读取全部分组、重复、未知和厂商标签；保留解析器的原始 JSON、标签 ID、原始数值、易读值和命名空间。
-- 视频使用 FFprobe 同时读取容器、流、章节和程序信息；完整原始 JSON 与字段浏览结果分别保留。
-- 灰色分隔网格“基本信息”、虚拟化“全部元数据”和“原始数据 / 诊断”三个视图；全部元数据支持搜索和复制。
-- 导出完整 JSON 或 CSV；重复字段及其来源不会合并。导出文件不可覆盖当前媒体文件。
-- 打开文件、文件夹、拖放、最近打开、同目录上/下一个、取消解析、浅色/深色主题。最近文件绝对路径只保存在当前 Windows 用户的 LocalAppData，不会上传。
+- 工具栏打开文件或文件夹，也可拖入媒体或输入路径。目录菜单 `☰` 提供导航、排序、三种视图和缩略图尺寸；搜索框仅筛选当前目录。顶部「布局」切换原版、三栏、双层布局；拖动分隔条调整比例。
+- 预览工具栏选择适应、50%、100%、200%、400%、旋转或全屏。100% 是解码图像像素与屏幕物理像素的 1:1。RAW 会标注实际解码来源及尺寸；有内嵌图不等于有完整传感器图。视频可在 FFmpeg 首帧与系统播放器间切换。
+- 右侧选「基本信息」「全部元数据」或「原始数据 / 诊断」。基本信息里没有的值显示「无」；查厂商私有字段或重复标签用全部元数据。可搜索、复制及导出 JSON/CSV。视频流、容器等由 FFprobe 独立报告。
+- 右键媒体 →「打开方式」→「选择其他应用…」只传递当前文件；另一个选项仅在此次会话记住所选 EXE。配置、最近打开和缩略图缓存在当前用户目录，不写进相片文件夹。
 
-扩展名只用于文件选择和预览路线，不代表文件一定是对应编码。实际解析结果与错误由 ExifTool、FFprobe 分别报告。解析器原始输出保留，以便发现扁平字段表之外的结构信息。
+## 项目结构与迁移
 
-## 环境与依赖
+|位置|职责与变化|
+|---|---|
+|`src/MetaLens.WinUI`|真正的 WinUI 3 XAML 外壳。`MainWindow` 协调命令、布局和取消；`ExplorerView` / `ExplorerModel` 管导航和虚拟视图；`PreviewView` / `MediaImages` 管解码、缩放、播放和有界缓存；`MetadataView` / `MetadataModel` 管查询、呈现与缓存。|
+|`src/ExifMetadata.Core`|新旧界面共用的纯 .NET 解析、字段模型、进程执行、JSON/CSV 导出。保留重复字段、来源、命名空间、原始值及诊断。|
+|`src/ExifMultimediaMetadataViewer`|保留 WPF 项目；与 v1.2.2 基线相比仅修正共享 GPS 摘要的方向识别。v2 按源码复用设置、最近文件、布局模型、文件系统、双语摘要等，不加载 WPF 窗口或控件。|
+|`tests`、`third_party`、`installer`|核心对照和真实窗口/安装测试；随包工具与许可证；按用户安装的 Inno Setup 配置。|
 
-- Windows x64。最低已验证系统为 Windows 10 专业工作站版 22H2、build 19045；Windows 11 未单独验证。
-- .NET 10 SDK。工程没有额外 NuGet 运行时依赖。
-- ExifTool 13.59 Windows x64 包含在 third_party/exiftool，使用时需要配套的 exiftool_files 目录。
-- FFmpeg/FFprobe Windows x64 共享构建包含在 third_party/ffmpeg/bin，实测版本为 `n9.0.2-36-g6882969ce9-20261027`，许可证为 LGPL-3.0-or-later。下载资产 SHA-256、实际构建参数和许可证资料见 third_party/ffmpeg-build-info.txt 与 third_party/THIRD-PARTY-NOTICES.md。
-- 依赖来源、许可证和具体文件见 third_party/THIRD-PARTY-NOTICES.md。FFmpeg 与 ExifTool 均作为独立进程调用，不与应用静态链接。
+WPF 的自定义虚拟面板、图片视口和 `GridSplitter` 在 v2 改为 WinUI `GridView` / `ListView`、原生滚动与指针输入、共享控件的可重排 `Grid`。界面与业务状态分离，但渲染、指针捕获、剪贴板和播放器操作保留在视图侧。详见[逐项迁移矩阵](MIGRATION_MATRIX.md)、[实机验收及三种布局截图](docs/v2.0.0/VALIDATION.md)、[版本记录](CHANGELOG.md)和[依赖说明](third_party/THIRD-PARTY-NOTICES.md)。
 
-应用运行时不联网。打开文件后，ExifTool 对所有媒体运行；常见视频扩展名会并行运行 FFprobe。不会默认执行逐帧或逐数据包分析。
+## 构建、复验与回退
 
-## 构建
+使用 Windows x64、PowerShell 7.4+、.NET 10 SDK、Windows SDK、Inno Setup 6。项目锁定 Windows App SDK WinUI/Runtime 2.7.0。正式产物自包含 .NET 与 Windows App SDK，不需要另装 .NET 桌面运行时；系统媒体解码器仍因机器而异。部署选用 EXE，不另发 MSIX。
 
-运行 `.\build-release.ps1`。脚本从项目统一版本号读取 `1.2.2`，先发布到临时目录并检查 EXE、ExifTool、FFmpeg/FFprobe 和文件版本，再移动到 `releases\v1.2.2\app`。目标版本目录已存在时脚本会拒绝覆盖；显式候选构建可使用 `-CandidateSuffix rc1` 创建独立目录。
+```powershell
+# 从仓库根运行；使用全新构建编号。样片只读，场景目录含 sample.jpg / sample.ARW / sample.mp4。
+.\build-release.ps1 -CandidateSuffix build.5 -SampleDirectory 'D:\媒体样片' -ScenarioDirectory 'D:\场景样片'
+.\build-installer.ps1 -SkipPublish -CandidateSuffix build.5
+# 在没有既有 MetaLens 2 安装的测试账户复验安装和卸载；不会卸载既有用户版本。
+.\tests\Test-WinUIInstaller.ps1 -ReleaseDirectory 'releases/v2.0.0/build.4'
+```
 
-先安装 Inno Setup 6，再运行 `.\build-installer.ps1 -SkipPublish` 生成安装程序。v1.2.2 默认输出到 `releases\v1.2.2\EXIF全媒体元数据查看器_v1.2.2_Setup.exe`。主程序为 `releases\v1.2.2\app\EXIF全媒体元数据查看器_v1.2.2.exe`。脚本拒绝静默覆盖同名产物。
-
-双击 `EXIF全媒体元数据查看器_v1.2.2.exe` 启动。也可以在 Windows 文件选择器中打开媒体，或把媒体文件拖到窗口。
-
-## 测试
-
-v1.2.2 布局截图、体积、性能和验收边界见 [验收报告](docs/v1.2.2/VALIDATION.md)。正式发布可传 `-SampleDirectory`，在暂存包内复验解析器再归档。
-
-不带样片时运行：
-
-    .\run-integration-tests.ps1
-
-如需使用本机样片核对完整字段：
-
-    .\run-integration-tests.ps1 -SampleDirectory "D:\媒体样片"
-
-测试程序比较解析器原始 JSON 的字段数量与应用数据模型，验证 Sony RAW 厂商字段、重复标签、中文路径、JSON 原始输出保留，以及 JSON/CSV 导出。提供样片只读；中文路径和导出检查在临时目录完成并清理。
-
-本工作区实际样片的构建与集成测试结果见 [TEST-REPORT.md](TEST-REPORT.md)。
-
-## 已知限制
-
-- 视频当前预览首帧，不播放视频；耗时的帧级/数据包级诊断未实现。
-- RAW 的完整渲染取决于 Windows WIC 解码器；否则使用 ExifTool 可提取且 WIC 可解码的嵌入预览。元数据读取与预览互相独立。
-- 缩略图模式使用应用内多列虚拟化面板；当前视口及有限缓冲区外不创建卡片容器。
-- HEIC/HEIF/AVIF/WebP 等预览取决于 Windows 上可用的 WIC 解码器；不能预览时仍尝试显示元数据。
-- 解析完整性仅对 ExifTool / FFprobe 返回的数据负责；解析器本身不识别的格式或厂商数据仍会报告限制。
-- 当前集成样片中没有 MOV、字幕或章节样片；这些结构可由 FFprobe 返回并完整保留，但尚未用真实对应样片验证。
-- 预览方向暂以像素数据和 ExifTool/FFmpeg 解码结果为准；当前没有单独旋转矩阵控制。
-
-详细阶段验证结果见 TEST-REPORT.md。
+两个构建脚本均拒绝覆盖已有产物。`build.4` 是本次交付序号，产品版本为 `2.0.0`；示例中的 `build.5` 是另建目录。保留所有旧发布；可直接运行 `releases/v1.2.2/app` 里的旧 EXE。要检查未经修改的旧源码，在仓库根运行 `git worktree add --detach ..\MetaLens-v122-checkout 659b88d`，不会重置当前分支。最终应用由源码 `f55a698` 构建；`v2.0.0` 标签另含验收材料。
