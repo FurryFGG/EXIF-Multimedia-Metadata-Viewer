@@ -117,10 +117,7 @@ try {
 } finally {
     if (Test-Path -LiteralPath $stagingPath) {
         $resolvedStage = (Resolve-Path -LiteralPath $stagingPath).Path
-        if ([IO.Path]::GetDirectoryName($resolvedStage) -ne (Resolve-Path -LiteralPath $stagingParent).Path -or [IO.Path]::GetFileName($resolvedStage) -notmatch '^[a-f0-9]{32}
-    }
-}
-) { throw "Unsafe staging path: $resolvedStage" }
+        if ([IO.Path]::GetDirectoryName($resolvedStage) -ne (Resolve-Path -LiteralPath $stagingParent).Path -or [IO.Path]::GetFileName($resolvedStage) -notmatch '^[a-f0-9]{32}$') { throw "Unsafe staging path: $resolvedStage" }
         Remove-Item -LiteralPath $resolvedStage -Recurse -Force
     }
 }
