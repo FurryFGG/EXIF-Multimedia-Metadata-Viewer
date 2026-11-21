@@ -65,6 +65,7 @@ public sealed partial class MainWindow
             }
 
             var jpg = Path.Combine(samples, "sample.jpg");
+            await CheckBrowserChanges(dir, jpg, steps);
             Request(jpg);
             await Until(() => viewer.Current == jpg && viewer.Image != null && meta.Data?.FilePath == jpg);
             var selectedEntry = browser.Model.Entries.Single(x => x.FullPath == jpg);
@@ -119,6 +120,11 @@ public sealed partial class MainWindow
             if (meta.All().Length < meta.Data!.ExifTool.RawJson.Length)
                 throw new Exception("不完整的原始 JSON");
             tabs.SelectedIndex = 0;
+            var summary = ((ListView)meta.FindName("Summary")).Items.OfType<SummaryRow>().ToArray();
+            var titles = summary.Where(r => r.IsHeader).Select(r => r.Label).ToArray();
+            if (titles.Length != 7 || titles.Distinct().Count() != titles.Length || summary.Any(r => !r.IsHeader && titles.Any(t => r.Label.Contains(t))))
+                throw new Exception("摘要分类重复或缺失");
+            steps.Add(new { summaryGroups=titles.Length, summaryFields=summary.Length-titles.Length });
             var entry = browser.Model.Entries.First(x => x.FullPath == jpg);
             var menu = FileMenu(entry);
             if (!menu.Items.OfType<MenuFlyoutSubItem>().Any())

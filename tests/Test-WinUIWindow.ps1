@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$Executable, [string]$ExpectedTitle='MetaLens')
+param([Parameter(Mandatory)][string]$Executable, [string]$ExpectedTitle='EXIF查看器')
 $ErrorActionPreference='Stop'
 $exe=(Resolve-Path -LiteralPath $Executable).Path
 $env:METALENS_PROFILE_DIR=Join-Path ([IO.Path]::GetTempPath()) ('MetaLens-QA-'+[guid]::NewGuid())

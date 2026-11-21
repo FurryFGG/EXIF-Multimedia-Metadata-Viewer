@@ -21,7 +21,7 @@ $releaseName = "v$version" + $(if ($CandidateSuffix) { "-$CandidateSuffix" } els
 $releaseRoot = Join-Path $repoRoot "releases\$releaseName"
 if ($CandidateSuffix -match '^build\.[0-9]+$' -and !(Test-Path -LiteralPath $releaseRoot)) { $releaseRoot = Join-Path $repoRoot "releases/v$version/$CandidateSuffix" }
 $appOutput = Join-Path $releaseRoot "app"
-$exeName = "EXIF全媒体元数据查看器_v$version.exe"
+$exeName = "EXIF查看器_v$version.exe"
 if (Test-Path -LiteralPath $releaseRoot) {
     throw "Release already exists and will not be overwritten: $releaseRoot. Use -CandidateSuffix with a new value for an explicit candidate build."
 }
@@ -65,7 +65,7 @@ try {
     $stagedExe = Join-Path $stagingPath $exeName
     $assets=Get-Content -LiteralPath (Join-Path (Split-Path $projectFile) 'obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
     # Runtime packs can be absent from the restore library list but present in the published deps manifest.
-    $deps=Get-Content -LiteralPath (Join-Path $stagingPath "EXIF全媒体元数据查看器_v$version.deps.json") -Raw | ConvertFrom-Json -AsHashtable
+    $deps=Get-Content -LiteralPath (Join-Path $stagingPath "EXIF查看器_v$version.deps.json") -Raw | ConvertFrom-Json -AsHashtable
     $runtimeKey=$deps.libraries.Keys | Where-Object { $_ -match '^(runtimepack\.)?Microsoft\.NETCore\.App\.Runtime\.win-x64/' } | Select-Object -First 1
     if (!$runtimeKey) { throw 'Cannot identify the published .NET runtime pack.' }
     $runtimePackage=($runtimeKey -replace '^runtimepack\.','').ToLowerInvariant()
@@ -131,7 +131,7 @@ try {
     Move-Item -LiteralPath $stageFull -Destination $appOutput
     $hash = (Get-FileHash -LiteralPath (Join-Path $appOutput $exeName) -Algorithm SHA256).Hash
     $buildInfo = @"
-# EXIF 全媒体元数据查看器 $releaseName
+# EXIF查看器 $releaseName
 
 - Version: $version
 - Built: $([DateTimeOffset]::Now.ToString("yyyy-MM-dd HH:mm:ss zzz"))

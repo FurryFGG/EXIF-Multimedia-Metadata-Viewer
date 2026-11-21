@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <MetaLensVersion>2.0.0</MetaLensVersion>
+    <MetaLensVersion>2.0.1</MetaLensVersion>
     <Version>$(MetaLensVersion)</Version>
     <Version Condition="'$(MSBuildProjectName)' == 'ExifMultimediaMetadataViewer' or '$(MSBuildProjectName)' == 'MetaLens.LayoutTests'">1.2.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

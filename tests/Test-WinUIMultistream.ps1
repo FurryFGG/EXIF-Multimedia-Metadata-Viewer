@@ -1,5 +1,5 @@
 #requires -Version 7.4
-param([string]$ReleaseDirectory='releases/v2.0.0/build.4', [string]$Dotnet='dotnet', [string]$ScenarioDirectory='artifacts/integration-samples-v121')
+param([string]$ReleaseDirectory='releases/v2.0.1', [string]$Dotnet='dotnet', [string]$ScenarioDirectory='artifacts/integration-samples-v121')
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot
 $release=(Resolve-Path -LiteralPath $ReleaseDirectory).Path
@@ -12,10 +12,11 @@ $tools=Join-Path $release 'app/tools'
 if($LASTEXITCODE -ne 0){throw 'Could not construct multi-stream fixture'}
 $streams=(& "$tools/ffmpeg/ffprobe.exe" -v error -show_entries stream=index,codec_type,codec_name:stream_tags=language -of json $video | Out-String | ConvertFrom-Json).streams
 if($LASTEXITCODE -ne 0 -or ($streams.codec_type -join '/') -ne 'video/audio/audio/subtitle'){ throw 'Fixture stream layout mismatch' }
-& $Dotnet run -c Release --project (Join-Path $repo 'tests/ExifMetadata.IntegrationTests') -- $repo $media $tools (Join-Path $repo 'releases/v1.2.2/app/tools') | Tee-Object -FilePath (Join-Path $run 'parity.txt')
+$baseline=if ($env:EXIF_QA_BASELINE_TOOLS) { $env:EXIF_QA_BASELINE_TOOLS } else { Join-Path $repo 'releases/v1.2.2/app/tools' }
+& $Dotnet run -c Release --project (Join-Path $repo 'tests/ExifMetadata.IntegrationTests') -- $repo $media $tools $baseline | Tee-Object -FilePath (Join-Path $run 'parity.txt')
 if($LASTEXITCODE -ne 0){throw 'Cross-version streams/export check failed'}
 foreach($name in 'sample.jpg','sample.ARW'){ Copy-Item -LiteralPath (Join-Path $ScenarioDirectory $name) -Destination $media }
-$exe=(Get-Item -LiteralPath (Join-Path $release 'app/EXIF全媒体元数据查看器_v2.0.0.exe')).FullName
+$exe=(Get-Item -LiteralPath (Join-Path $release 'app/EXIF查看器_v2.0.1.exe')).FullName
 & "$PSScriptRoot/Test-WinUIScenario.ps1" -Mode media -Executable $exe -SampleDirectory $media -ArtifactDirectory $run
 & "$PSScriptRoot/Test-WinUIScenario.ps1" -Mode workspace -Executable $exe -SampleDirectory $media -ArtifactDirectory $run
 $streams | Format-Table index,codec_type,codec_name

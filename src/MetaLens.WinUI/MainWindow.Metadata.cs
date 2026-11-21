@@ -46,6 +46,7 @@ public sealed partial class MainWindow
             var a = await metaModel.Read(path, c.Token);
             c.Token.ThrowIfCancellationRequested();
             meta.Set(a, viewer.Error ?? viewer.Kind);
+            browser.Model.RememberTaken(a);
             Notice($"{Path.GetFileName(path)} · {a.AllFields.Count:N0} 个字段 · ExifTool {a.ExifTool.Status} · FFprobe {a.FFprobe.Status}");
         }
         catch (OperationCanceledException)

@@ -99,6 +99,14 @@ internal static class MediaImages
         }
     }
 
+    internal static Task<byte[]?> Folder(string path, CancellationToken ct) => FolderCover.ReadAsync(path, async (file, token) =>
+    {
+        using var stream = new MemoryStream(await Thumb(file, token));
+        var dec = await BitmapDecoder.CreateAsync(stream.AsRandomAccessStream()).AsTask(token);
+        var pixels = await dec.GetPixelDataAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Straight, new BitmapTransform(), ExifOrientationMode.IgnoreExifOrientation, ColorManagementMode.DoNotColorManage).AsTask(token);
+        return new FolderCover.Pixels((int)dec.PixelWidth, (int)dec.PixelHeight, pixels.DetachPixelData());
+    }, ct);
+
     internal static async Task<byte[]> Thumb(string file, CancellationToken ct)
     {
         var inf = new FileInfo(file);

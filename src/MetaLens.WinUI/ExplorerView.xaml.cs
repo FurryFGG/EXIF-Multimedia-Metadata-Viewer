@@ -20,9 +20,17 @@ public sealed partial class ExplorerView:UserControl
   }
  }
  internal void Setup(ViewerSettings s,CancellationToken stop){Stop=stop;Model.Sort=s.BrowserSortMode; View=s.BrowserViewMode;TileSize=s.ThumbnailSize;Tiles.ItemsSource=Rows.ItemsSource=Model.Items;SetView(View);foreach(var n in Model.Service.GetDriveRoots())Tree.RootNodes.Add(Node(n));
- void Cmd(string title,Action a){var m=new MenuFlyoutItem{Text=title};m.Click+=(_,_)=>a();NavMenu.Items.Add(m);} Cmd("返回",()=>Go(Model.Step(-1),false));Cmd("前进",()=>Go(Model.Step(1),false));Cmd("上级",()=>Go(Directory.GetParent(Model.Folder)?.FullName));Cmd("刷新",()=>Go(Model.Folder,false));NavMenu.Items.Add(new MenuFlyoutSeparator());foreach(var v in new[]{"缩略图","列表","详细信息"})Cmd("视图 · "+v,()=>SetView(v));foreach(var v in new[]{"名称","类型","修改时间","大小"})Cmd("排序 · "+v,()=>{Model.Sort=v;Model.RefreshView();OptionsChanged?.Invoke();});Cmd("增大缩略图",()=>ResizeTiles(20));Cmd("缩小缩略图",()=>ResizeTiles(-20));init=true;}
+ void Cmd(string title,Action a){var m=new MenuFlyoutItem{Text=title};m.Click+=(_,_)=>a();NavMenu.Items.Add(m);} Cmd("返回",()=>Go(Model.Step(-1),false));Cmd("前进",()=>Go(Model.Step(1),false));Cmd("上级",()=>Go(Directory.GetParent(Model.Folder)?.FullName));Cmd("刷新",()=>Go(Model.Folder,false));NavMenu.Items.Add(new MenuFlyoutSeparator());foreach(var v in new[]{"缩略图","列表","详细信息"})Cmd("视图 · "+v,()=>SetView(v));
+ Model.Descending=s.SortDescending;Model.FoldersFirst=s.FoldersFirst;
+ var sortMenu=new MenuFlyoutSubItem{Text="排序"};NavMenu.Items.Add(sortMenu);
+ void ApplySort(){var selection=(View=="缩略图"?(ListViewBase)Tiles:Rows).SelectedItem as BrowserEntry;Model.RefreshView();if(selection!=null)SelectPath(selection.FullPath);OptionsChanged?.Invoke();}
+ foreach(var v in new[]{"名称","修改时间","创建时间","拍摄时间","大小","类型"}){var item=new RadioMenuFlyoutItem{Text=v=="拍摄时间"?"拍摄时间（已读取，未知置后）":v,GroupName="SortField",IsChecked=Model.Sort==v};item.Click+=(_,_)=>{Model.Sort=v;ApplySort();};sortMenu.Items.Add(item);}
+ sortMenu.Items.Add(new MenuFlyoutSeparator());
+ foreach(var desc in new[]{false,true}){var item=new RadioMenuFlyoutItem{Text=desc?"倒序":"正序",GroupName="Direction",IsChecked=Model.Descending==desc};item.Click+=(_,_)=>{Model.Descending=desc;ApplySort();};sortMenu.Items.Add(item);}
+ var folders=new ToggleMenuFlyoutItem{Text="文件夹优先",IsChecked=Model.FoldersFirst};folders.Click+=(_,_)=>{Model.FoldersFirst=folders.IsChecked;ApplySort();};sortMenu.Items.Add(folders);
+ Cmd("增大缩略图",()=>ResizeTiles(20));Cmd("缩小缩略图",()=>ResizeTiles(-20));init=true;}
  void ResizeTiles(int delta){TileSize=Math.Clamp(TileSize+delta,96,260);FitTiles();OptionsChanged?.Invoke();}
- internal void FitTiles(){if(Tiles.ItemsPanelRoot is ItemsWrapGrid p){var w=Math.Max(1,Tiles.ActualWidth-18);var cols=Math.Max(1,(int)(w/TileSize));p.ItemWidth=Math.Max(1,Math.Floor(w/cols));p.ItemHeight=Math.Max(88,Math.Min(170,p.ItemWidth*.65)+58);}}
+ internal void FitTiles(){if(Tiles.ItemsPanelRoot is ItemsWrapGrid p){p.ItemWidth=TileSize;p.ItemHeight=Math.Max(88,Math.Min(170,TileSize*.65)+58);}}
  void TileSizeChanged(object s,SizeChangedEventArgs e)=>FitTiles();internal void SetView(string v){View=v;Tiles.Visibility=v=="缩略图"?Visibility.Visible:Visibility.Collapsed;Rows.Visibility=v!="缩略图"?Visibility.Visible:Visibility.Collapsed;Rows.Header=v=="详细信息"?detailHeader:null;Rows.ItemTemplate=(DataTemplate)Resources[v=="详细信息"?"Detail":"Compact"];if(init)OptionsChanged?.Invoke();}
  internal async Task<bool> Navigate(string folder,bool remember=true){try{Address.Text=folder;return await Model.Navigate(folder,remember,Stop);}catch(OperationCanceledException){return false;}catch(Exception ex){Message?.Invoke(ex.Message);return false;}}
  async void Go(string? dir,bool remember=true){if(!string.IsNullOrEmpty(dir))await Navigate(dir,remember);}
@@ -38,10 +46,11 @@ public sealed partial class ExplorerView:UserControl
  void Release(Image img){if(tileJobs.Remove(img,out var old))old.Cancel();img.Source=null;}
  async void Load(Image img){
   Release(img);
-  if(img.DataContext is not BrowserEntry b||b.IsDirectory||!MediaAnalyzer.IsKnownMediaFile(b.FullPath)||Stop.IsCancellationRequested)return;
+  if(img.DataContext is not BrowserEntry b||(!b.IsDirectory&&!MediaAnalyzer.IsKnownMediaFile(b.FullPath))||Stop.IsCancellationRequested)return;
   using var job=CancellationTokenSource.CreateLinkedTokenSource(Stop);tileJobs[img]=job;
   try{
-   var bytes=await Task.Run(()=>MediaImages.Thumb(b.FullPath,job.Token),job.Token);job.Token.ThrowIfCancellationRequested();
+   var bytes=b.IsDirectory ? await MediaImages.Folder(b.FullPath,job.Token) : await Task.Run(()=>MediaImages.Thumb(b.FullPath,job.Token),job.Token);job.Token.ThrowIfCancellationRequested();
+   if(bytes is null)return;
    using var data=new MemoryStream(bytes);var image=new BitmapImage();await image.SetSourceAsync(data.AsRandomAccessStream()).AsTask(job.Token);
    job.Token.ThrowIfCancellationRequested();img.Source=image;b.ReportPreview("缩略图已加载");
   }catch(OperationCanceledException){}catch(Exception){if(!job.IsCancellationRequested)b.ReportPreview("不支持预览或读取失败");}

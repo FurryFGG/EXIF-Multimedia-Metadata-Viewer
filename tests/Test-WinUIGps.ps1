@@ -13,4 +13,4 @@ foreach($entry in @(@('ne','12 30 0','N','30 15 0','E'),@('sw','12 30 0','S','30
     & "$app/tools/exiftool/exiftool.exe" -o (Join-Path $files ($entry[0]+'.jpg')) "-GPSLatitude=$($entry[1])" "-GPSLatitudeRef=$($entry[2])" "-GPSLongitude=$($entry[3])" "-GPSLongitudeRef=$($entry[4])" $plain
     if($LASTEXITCODE){throw 'Could not populate synthetic coordinates'}
 }
-& "$PSScriptRoot/Test-WinUIScenario.ps1" -Mode gps -Executable (Join-Path $app 'EXIF全媒体元数据查看器_v2.0.0.exe') -SampleDirectory $files -ArtifactDirectory $run
+& "$PSScriptRoot/Test-WinUIScenario.ps1" -Mode gps -Executable (Join-Path $app 'EXIF查看器_v2.0.1.exe') -SampleDirectory $files -ArtifactDirectory $run

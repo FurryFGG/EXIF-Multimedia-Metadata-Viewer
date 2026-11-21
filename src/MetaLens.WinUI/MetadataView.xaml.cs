@@ -4,7 +4,11 @@ using ExifMetadata.Core.Models;
 using ExifMultimediaMetadataViewer.Services;
 
 namespace MetaLens.WinUI;
-public sealed record SummaryRow(string Label, string Value, string Source);
+public sealed record SummaryRow(string Label, string Value, string Source, bool IsHeader=false)
+{
+    public int Span => IsHeader ? 2 : 1;
+    public double LabelSize => IsHeader ? 17 : 14;
+}
 public sealed partial class MetadataView : UserControl
 {
     internal MediaAnalysis? Data;
@@ -60,7 +64,7 @@ public sealed partial class MetadataView : UserControl
         switch (Tabs.SelectedIndex)
         {
             case 0:
-                Summary.ItemsSource = MetadataSummaryBuilder.Build(Data, preview).SelectMany(sec => sec.Fields.Select(f => new SummaryRow(sec.Title + " · " + f.LabelZh + " / " + f.LabelEn, f.Value, f.SourcePath))).ToArray();
+                Summary.ItemsSource = MetadataSummaryBuilder.Build(Data, preview).SelectMany(sec => sec.Fields.Select(f => new SummaryRow(f.LabelZh + " / " + f.LabelEn, f.Value, f.SourcePath)).Prepend(new SummaryRow(sec.Title,"","",true))).ToArray();
                 break;
             case 1:
                 FilterFields();

@@ -1,12 +1,14 @@
 using ExifMetadata.Core.Services;
 
 namespace ExifMultimediaMetadataViewer.ViewModels;
-public sealed class BrowserEntry(string fullPath, bool isDirectory, long size, DateTime modifiedTime) : ObservableObject
+public sealed class BrowserEntry(string fullPath, bool isDirectory, long size, DateTime modifiedTime, DateTime createdTime = default) : ObservableObject
 {
     public string FullPath { get; } = fullPath;
     public bool IsDirectory { get; } = isDirectory;
     public long Size { get; } = size;
     public DateTime ModifiedTime { get; } = modifiedTime;
+    public DateTime CreatedTime { get; } = createdTime;
+    public DateTime? TakenTime { get; set; }
     private string? previewStatus;
     public string PreviewStatus => previewStatus ?? (IsDirectory ? "文件夹" : MediaAnalyzer.IsKnownMediaFile(FullPath) ? "等待预览" : "不支持预览");
     internal void ReportPreview(string status) => SetProperty(ref previewStatus, status, nameof(PreviewStatus));

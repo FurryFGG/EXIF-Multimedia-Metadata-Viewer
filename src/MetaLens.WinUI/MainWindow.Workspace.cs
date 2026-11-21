@@ -28,6 +28,8 @@ public sealed partial class MainWindow
             {
                 BrowserViewMode = browser.View,
                 BrowserSortMode = browser.Model.Sort,
+                SortDescending = browser.Model.Descending,
+                FoldersFirst = browser.Model.FoldersFirst,
                 ThumbnailSize = browser.TileSize
             };
             store.Save(settings);

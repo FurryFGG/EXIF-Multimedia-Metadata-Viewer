@@ -49,7 +49,7 @@ public sealed partial class MainWindow : Window
     {
         var version = typeof(App).Assembly.GetName().Version!.ToString(3);
         await new ContentDialog { XamlRoot = Root.XamlRoot, RequestedTheme = Root.ActualTheme,
-            Title = $"关于 MetaLens v{version}", Content = "EXIF 全媒体元数据查看器 · Windows x64\nWinUI 3 · Windows App SDK\n本地只读解析，不注册系统默认打开方式。", CloseButtonText = "关闭" }.ShowAsync();
+            Title = $"关于 EXIF查看器 v{version}", Content = "EXIF查看器 · Windows x64\nWinUI 3 · Windows App SDK\n本地只读解析，不注册系统默认打开方式。", CloseButtonText = "关闭" }.ShowAsync();
     }
     async void OnReady(object sender, RoutedEventArgs e)
     {

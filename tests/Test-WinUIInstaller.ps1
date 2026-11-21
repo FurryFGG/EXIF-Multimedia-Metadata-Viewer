@@ -1,13 +1,13 @@
 #requires -Version 7.4
-param([string]$ReleaseDirectory=(Join-Path (Split-Path $PSScriptRoot) 'releases/v2.0.0'))
+param([string]$ReleaseDirectory=(Join-Path (Split-Path $PSScriptRoot) 'releases/v2.0.1'),[string]$SampleDirectory)
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot
 $release=(Resolve-Path -LiteralPath $ReleaseDirectory).Path
-$setup=Get-Item -LiteralPath (Join-Path $release 'EXIF全媒体元数据查看器_v2.0.0_Setup.exe')
-$exeName='EXIF全媒体元数据查看器_v2.0.0.exe'
-$appId='{32AF6637-846F-40AC-ABAF-103524876ED8}_is1'
+$setup=Get-Item -LiteralPath (Join-Path $release 'EXIF查看器_v2.0.1_Setup.exe')
+$exeName='EXIF查看器_v2.0.1.exe'
+$appId='{6AD6DD3D-9E20-4693-9B36-DC1200201ABA}_is1'
 $uninstallRoots='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-$links='Programs','DesktopDirectory' | ForEach-Object { Join-Path ([Environment]::GetFolderPath($_)) 'MetaLens 2.lnk' }
+$links='Programs','DesktopDirectory' | ForEach-Object { Join-Path ([Environment]::GetFolderPath($_)) 'EXIF查看器 v2.0.1.lnk' }
 foreach($target in @($uninstallRoots | ForEach-Object { Join-Path $_ $appId }) + $links){if(Test-Path -LiteralPath $target){throw "已有 v2 安装或快捷方式，不进行隔离安装测试：$target"}}
 $run=Join-Path $repo ('artifacts/qa200/install-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $run
@@ -37,7 +37,7 @@ try {
     $argsForSetup=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOCLOSEAPPLICATIONS','/NOICONS','/MERGETASKS="!desktopicon"',('/DIR="'+$testApp+'"'))
     RunInstaller $setup.FullName ($argsForSetup + ('/LOG="'+(Join-Path $run 'install.log')+'"'))
     $fileCount=VerifyPayload
-    & (Join-Path $PSScriptRoot 'Test-WinUIScenario.ps1') -Mode media -Executable $program -ArtifactDirectory $run
+    & (Join-Path $PSScriptRoot 'Test-WinUIScenario.ps1') -Mode media -Executable $program -ArtifactDirectory $run -SampleDirectory $SampleDirectory
     RunInstaller $setup.FullName ($argsForSetup + ('/LOG="'+(Join-Path $run 'reinstall.log')+'"'))
     if((VerifyPayload) -ne $fileCount){throw '重装后内容有变化'}
 } finally {
