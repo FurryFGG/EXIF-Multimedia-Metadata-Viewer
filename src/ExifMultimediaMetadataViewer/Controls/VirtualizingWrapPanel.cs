@@ -14,6 +14,8 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         nameof(ItemHeight), typeof(double), typeof(VirtualizingWrapPanel),
         new FrameworkPropertyMetadata(175d, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    private int _columns = 1;
+    private double _cellWidth;
     private Size _extent;
     private Size _viewport;
     private Point _offset;
@@ -38,7 +40,9 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var height = double.IsInfinity(availableSize.Height) ? Math.Max(ItemHeight, 1) : Math.Max(availableSize.Height, 1);
         var itemWidth = Math.Max(ItemWidth, 1);
         var itemHeight = Math.Max(ItemHeight, 1);
-        var columns = Math.Max(1, (int)Math.Floor(width / itemWidth));
+        var columns = _columns = Math.Max(1, (int)Math.Floor(width / itemWidth));
+        // One sparse row keeps the same grid as a full page. A narrow sidebar may shrink its only cell.
+        _cellWidth = Math.Min(width / columns, itemWidth * 1.25);
         var rows = (int)Math.Ceiling(count / (double)columns);
         UpdateScrollInfo(new Size(width, rows * itemHeight), new Size(width, height));
 
@@ -46,14 +50,14 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var visibleRows = Math.Max(1, (int)Math.Ceiling(height / itemHeight) + 2);
         var firstIndex = Math.Min(count, firstRow * columns);
         var lastIndex = Math.Min(count - 1, (firstRow + visibleRows) * columns - 1);
-        RealizeRange(firstIndex, lastIndex, new Size(itemWidth, itemHeight));
+        RealizeRange(firstIndex, lastIndex, new Size(_cellWidth, itemHeight));
         CleanupRange(firstIndex, lastIndex);
-        return availableSize;
+        return new Size(width, height);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var columns = Math.Max(1, (int)Math.Floor(Math.Max(finalSize.Width, 1) / Math.Max(ItemWidth, 1)));
+        var columns = _columns;
         foreach (UIElement child in InternalChildren)
         {
             var index = ItemsControl.GetItemsOwner(this)?.ItemContainerGenerator.IndexFromContainer(child) ?? -1;
@@ -61,7 +65,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
                 continue;
             var row = index / columns;
             var column = index % columns;
-            child.Arrange(new Rect(column * ItemWidth, row * ItemHeight - VerticalOffset, ItemWidth, ItemHeight));
+            child.Arrange(new Rect(column * _cellWidth, row * ItemHeight - VerticalOffset, _cellWidth, ItemHeight));
         }
         return finalSize;
     }
@@ -148,7 +152,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             var index = ItemsControl.GetItemsOwner(this)?.ItemContainerGenerator.IndexFromContainer(element) ?? -1;
             if (index >= 0)
             {
-                var columns = Math.Max(1, (int)Math.Floor(Math.Max(ViewportWidth, 1) / Math.Max(ItemWidth, 1)));
+                var columns = _columns;
                 var top = index / columns * ItemHeight;
                 if (top < VerticalOffset)
                     SetVerticalOffset(top);

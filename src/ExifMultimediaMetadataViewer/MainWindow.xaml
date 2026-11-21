@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ExifMultimediaMetadataViewer.Controls"
         Title="EXIF 全媒体元数据查看器 v1.2.1"
-        Width="1480" Height="920" MinWidth="1040" MinHeight="680"
+        UseLayoutRounding="True" Width="1480" Height="920" MinWidth="1040" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
         Loaded="Window_Loaded" PreviewKeyDown="Window_PreviewKeyDown" Closing="Window_Closing"
@@ -12,9 +12,7 @@
         <Grid x:Name="MainLayout">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition x:Name="BrowserRow" Height="300" MinHeight="0" />
-                <RowDefinition x:Name="BrowserSplitterRow" Height="7" />
-                <RowDefinition Height="*" MinHeight="270" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -33,7 +31,11 @@
                             <TextBlock Text="Windows 本地只读 · 不上传或修改媒体文件" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" />
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="布局" VerticalAlignment="Center" Margin="4,0" />
+                        <ComboBox x:Name="LayoutPicker" SelectionChanged="LayoutPicker_Changed" VerticalAlignment="Center" ToolTip="切换工作区布局" Margin="3">
+                            <ComboBoxItem Content="原版布局"/><ComboBoxItem Content="三栏布局"/><ComboBoxItem Content="双层布局"/>
+                        </ComboBox>
                         <Button Content="打开文件" Click="OpenFile_Click" />
                         <Button Content="打开文件夹" Click="OpenFolder_Click" />
                         <Button Content="{Binding BrowserButtonText}" Click="ToggleBrowser_Click" />
@@ -44,40 +46,41 @@
                         <Button Content="导出 CSV" Click="ExportCsv_Click" />
                         <Button Content="{Binding ThemeButtonText}" Click="Theme_Click" />
                         <Button Content="取消" Click="Cancel_Click" IsEnabled="{Binding IsBusy}" />
-                    </StackPanel>
+                    </WrapPanel>
                 </DockPanel>
             </Border>
 
-            <Border x:Name="FileBrowserPanel" Grid.Row="1" Margin="0,8,0,0"
+            <Grid x:Name="Workspace" Grid.Row="1" Margin="0,8,0,0">
+            <Border x:Name="FileBrowserPanel"
                     Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="8"
                     Visibility="{Binding IsBrowserExpanded, Converter={StaticResource BoolToVisibility}}">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="0,0,0,7">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="←" FontSize="17" Padding="10,5" Click="BackFolder_Click" IsEnabled="{Binding CanGoBack}" ToolTip="返回" />
-                            <Button Content="→" FontSize="17" Padding="10,5" Click="ForwardFolder_Click" IsEnabled="{Binding CanGoForward}" ToolTip="前进" />
-                            <Button Content="↑ 上级" Click="ParentFolder_Click" IsEnabled="{Binding CanGoParent}" />
-                            <Button Content="↻ 刷新" Click="RefreshFolder_Click" />
-                        </StackPanel>
-                        <TextBox x:Name="BrowserPathBox" Grid.Column="1" Margin="8,0" VerticalContentAlignment="Center"
-                                 Text="{Binding AddressText, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="BrowserPathBox_KeyDown" ToolTip="输入文件夹路径并按 Enter 导航；可复制完整路径" />
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BrowserStatus}" MaxWidth="270" Foreground="{DynamicResource MutedTextBrush}"
-                                       Margin="5,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding BrowserStatus}" />
-                            <Border Background="{DynamicResource PanelAltBrush}" BorderBrush="{DynamicResource BorderBrush}"
-                                    BorderThickness="1" CornerRadius="4" Padding="9,5"><TextBlock Text="{Binding FileCountText}" /></Border>
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid Grid.Row="1">
+                    <StackPanel Grid.Row="0" Margin="0,0,0,4">
+                        <DockPanel>
+                            <WrapPanel DockPanel.Dock="Left">
+                                <Button Content="←" Padding="4,3" Click="BackFolder_Click" IsEnabled="{Binding CanGoBack}" ToolTip="返回"/>
+                                <Button Content="→" Padding="4,3" Click="ForwardFolder_Click" IsEnabled="{Binding CanGoForward}" ToolTip="前进"/>
+                                <Button Content="↑" Padding="4,3" Click="ParentFolder_Click" IsEnabled="{Binding CanGoParent}" ToolTip="上级"/>
+                                <Button Content="↻" Padding="4,3" Click="RefreshFolder_Click" ToolTip="刷新"/>
+                            </WrapPanel>
+                            <TextBox x:Name="BrowserPathBox" Text="{Binding AddressText, UpdateSourceTrigger=PropertyChanged}" KeyDown="BrowserPathBox_KeyDown" ToolTip="输入目录路径，按 Enter 导航"/>
+                        </DockPanel>
+                        <WrapPanel Margin="1,4,0,0">
+                            <TextBlock Text="排序" VerticalAlignment="Center"/>
+                            <ComboBox Width="80" Margin="4,1" ItemsSource="{Binding BrowserSortModes}" SelectedItem="{Binding BrowserSortMode}"/>
+                            <ComboBox Width="83" Margin="4,1" ToolTip="文件视图" ItemsSource="{Binding BrowserViewModes}" SelectedItem="{Binding BrowserViewMode}"/>
+                            <Slider Width="74" Minimum="96" Maximum="260" Margin="4,0" VerticalAlignment="Center" ToolTip="缩略图大小" Value="{Binding ThumbnailSize}"/>
+                            <TextBox Width="100" Padding="4,1" Margin="3,1" ToolTip="筛选当前目录文件名" AutomationProperties.Name="筛选文件名" Text="{Binding BrowserQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                            <TextBlock Text="{Binding FileCountText}" ToolTip="{Binding BrowserStatus}" VerticalAlignment="Center" Margin="4,1"/>
+                        </WrapPanel>
+                    </StackPanel>
+                    <Grid x:Name="BrowserBody" Grid.Row="1">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition x:Name="FolderTreeColumn" Width="260" MinWidth="170" MaxWidth="520" />
+                            <ColumnDefinition x:Name="FolderTreeColumn" Width="260" MinWidth="68" />
                             <ColumnDefinition Width="7" />
-                            <ColumnDefinition Width="*" MinWidth="360" />
+                            <ColumnDefinition x:Name="ContentColumn" Width="*" MinWidth="105" />
                         </Grid.ColumnDefinitions>
                         <Border Grid.Column="0" Background="{DynamicResource PanelAltBrush}" BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="1" CornerRadius="5" Padding="4">
@@ -109,30 +112,14 @@
                         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                                       ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="False"
                                       Cursor="SizeWE" Background="{DynamicResource BorderBrush}"
-                                      DragCompleted="BrowserTreeSplitter_DragCompleted" />
+                                      x:Name="TreeSplitter" DragCompleted="WorkspaceSplit_End" />
 
                         <Grid Grid.Column="2">
-                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                            <DockPanel Grid.Row="0" Margin="4,0,0,6">
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="缩略图大小" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}" />
-                                    <Slider Width="115" Minimum="96" Maximum="260" TickFrequency="16" Margin="7,0"
-                                            Value="{Binding ThumbnailSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                    <Button Content="缩略图" Click="ThumbnailView_Click" />
-                                    <Button Content="列表" Click="ListView_Click" />
-                                    <Button Content="详细信息" Click="DetailsView_Click" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="排序" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}" />
-                                    <ComboBox Width="118" Margin="7,0" ItemsSource="{Binding BrowserSortModes}"
-                                              SelectedItem="{Binding BrowserSortMode, Mode=TwoWay}" />
-                                </StackPanel>
-                            </DockPanel>
-                            <Grid Grid.Row="1">
-                                <ListBox x:Name="ThumbnailList" ItemsSource="{Binding BrowserEntries}"
+                            <Grid>
+                                <ListBox x:Name="ThumbnailList" ItemsSource="{Binding VisibleEntries}"
                                          SelectedItem="{Binding SelectedBrowserEntry, Mode=TwoWay}"
                                          SelectionChanged="BrowserList_SelectionChanged" MouseDoubleClick="BrowserList_MouseDoubleClick"
-                                         PreviewKeyDown="BrowserList_PreviewKeyDown"
+                                         PreviewMouseRightButtonDown="FileRightDown" PreviewMouseRightButtonUp="FileRightUp" PreviewKeyDown="BrowserList_PreviewKeyDown"
                                          ScrollViewer.ScrollChanged="ThumbnailScrollViewer_ScrollChanged"
                                          ScrollViewer.CanContentScroll="True"
                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -148,7 +135,7 @@
                                     </ListBox.ItemsPanel>
                                     <ListBox.ItemContainerStyle>
                                         <Style TargetType="ListBoxItem">
-                                            <Setter Property="Width" Value="{Binding DataContext.ThumbnailSize, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                            <Setter Property="HorizontalAlignment" Value="Stretch" />
                                             <Setter Property="Margin" Value="5" /><Setter Property="Padding" Value="0" />
                                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                             <Setter Property="VerticalContentAlignment" Value="Stretch" />
@@ -182,17 +169,17 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
 
-                                <ListBox x:Name="CompactList" ItemsSource="{Binding BrowserEntries}"
+                                <ListBox x:Name="CompactList" ItemsSource="{Binding VisibleEntries}"
                                          SelectedItem="{Binding SelectedBrowserEntry, Mode=TwoWay}"
                                          SelectionChanged="BrowserList_SelectionChanged" MouseDoubleClick="BrowserList_MouseDoubleClick"
-                                         PreviewKeyDown="BrowserList_PreviewKeyDown" ScrollViewer.CanContentScroll="True"
+                                         PreviewMouseRightButtonDown="FileRightDown" PreviewMouseRightButtonUp="FileRightUp" PreviewKeyDown="BrowserList_PreviewKeyDown" ScrollViewer.CanContentScroll="True"
                                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                          Background="{DynamicResource PanelBrush}" BorderThickness="0"
                                          Visibility="{Binding IsListView, Converter={StaticResource BoolToVisibility}}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Grid Height="42" Margin="4,1">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="52" /><ColumnDefinition Width="*" /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="52" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                 <Border Width="38" Height="34" Background="{DynamicResource PanelAltBrush}" CornerRadius="3">
                                                     <Grid><Image Source="{Binding Thumbnail}" Stretch="Uniform" Loaded="Thumbnail_Loaded" />
                                                         <TextBlock Text="{Binding TypeGlyph}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
@@ -201,17 +188,17 @@
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding FullPath}" />
                                                     <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                                 </StackPanel>
-                                                <TextBlock Grid.Column="2" Text="{Binding SizeAndDateText}" FontSize="10" VerticalAlignment="Center"
+                                                <TextBlock MaxWidth="95" Grid.Column="2" Text="{Binding SizeAndDateText}" FontSize="10" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
 
-                                <DataGrid x:Name="DetailsList" ItemsSource="{Binding BrowserEntries}"
+                                <DataGrid x:Name="DetailsList" ItemsSource="{Binding VisibleEntries}"
                                           SelectedItem="{Binding SelectedBrowserEntry, Mode=TwoWay}"
                                           SelectionChanged="BrowserList_SelectionChanged" MouseDoubleClick="BrowserList_MouseDoubleClick"
-                                          PreviewKeyDown="BrowserList_PreviewKeyDown" AutoGenerateColumns="False" IsReadOnly="True"
+                                          PreviewMouseRightButtonDown="FileRightDown" PreviewMouseRightButtonUp="FileRightUp" PreviewKeyDown="BrowserList_PreviewKeyDown" AutoGenerateColumns="False" IsReadOnly="True"
                                           CanUserAddRows="False" EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True"
                                           VirtualizingPanel.VirtualizationMode="Recycling" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource TextBrush}" BorderThickness="0"
@@ -231,19 +218,8 @@
                 </Grid>
             </Border>
 
-            <GridSplitter x:Name="BrowserHeightSplitter" Grid.Row="2" Height="5" HorizontalAlignment="Stretch"
-                          VerticalAlignment="Center" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
-                          ShowsPreview="False" Cursor="SizeNS" Background="{DynamicResource BorderBrush}"
-                          DragCompleted="BrowserHeightSplitter_DragCompleted"
-                          Visibility="{Binding IsBrowserExpanded, Converter={StaticResource BoolToVisibility}}" />
-
-            <Grid Grid.Row="3">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition x:Name="PreviewColumn" Width="1.05*" MinWidth="320" />
-                    <ColumnDefinition Width="8" />
-                    <ColumnDefinition x:Name="MetadataColumn" Width="1.1*" MinWidth="390" />
-                </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
+            <GridSplitter x:Name="BrowserSplitter" DragCompleted="WorkspaceSplit_End" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}"/>
+                <Border x:Name="PreviewPanel" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="10">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
@@ -282,11 +258,8 @@
                         </Grid>
                     </Grid>
                 </Border>
-                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                              ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="False"
-                              Cursor="SizeWE" Background="{DynamicResource BorderBrush}" DragCompleted="Splitter_DragCompleted" />
-
-                <Border Grid.Column="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                <GridSplitter x:Name="MediaSplitter" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}" DragCompleted="WorkspaceSplit_End"/>
+                <Border x:Name="MetadataPanel" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="9">
                     <TabControl Background="{DynamicResource PanelBrush}" BorderThickness="0">
                         <TabItem Header="基本信息">
@@ -311,7 +284,7 @@
                                                                         </Style>
                                                                     </Border.Style>
                                                                     <Grid>
-                                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="175" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="0.8*" MaxWidth="175" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                                                         <StackPanel Margin="0,1,9,1">
                                                                             <TextBlock Text="{Binding LabelZh}" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap" />
                                                                             <TextBlock Text="{Binding LabelEn}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
@@ -335,7 +308,7 @@
                             <Grid Margin="6">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                 <DockPanel Margin="2,2,2,8">
-                                    <TextBox Width="280" HorizontalAlignment="Left" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                    <TextBox MinWidth="70" MaxWidth="280" DockPanel.Dock="Top" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                              ToolTip="搜索标签名、标签路径、ID、值或来源" />
                                     <TextBlock Text="{Binding FieldCountText}" DockPanel.Dock="Right" VerticalAlignment="Center"
                                                Foreground="{DynamicResource MutedTextBrush}" Margin="12,0" />
@@ -352,8 +325,8 @@
                                         <DataGridTextColumn Header="标签" Binding="{Binding TagName}" Width="150" />
                                         <DataGridTextColumn Header="组 / 完整路径" Binding="{Binding FullPath}" Width="210" />
                                         <DataGridTextColumn Header="ID" Binding="{Binding TagId}" Width="80" />
-                                        <DataGridTextColumn Header="格式化值" Binding="{Binding FormattedValue}" Width="2*" />
-                                        <DataGridTextColumn Header="原始值" Binding="{Binding RawValue}" Width="2*" />
+                                        <DataGridTextColumn Header="格式化值" Binding="{Binding FormattedValue}" MinWidth="120" Width="2*" />
+                                        <DataGridTextColumn Header="原始值" Binding="{Binding RawValue}" MinWidth="120" Width="2*" />
                                         <DataGridTextColumn Header="类型" Binding="{Binding DataType}" Width="70" />
                                     </DataGrid.Columns>
                                 </DataGrid>
@@ -374,7 +347,7 @@
                 </Border>
             </Grid>
 
-            <Border Grid.Row="4" Margin="0,8,0,0" Background="{DynamicResource PanelBrush}"
+            <Border Grid.Row="2" Margin="0,8,0,0" Background="{DynamicResource PanelBrush}"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="9,6">
                 <DockPanel>
                     <ProgressBar DockPanel.Dock="Right" Width="110" Height="8" Margin="12,0,2,0" IsIndeterminate="{Binding IsBusy}" />

@@ -45,10 +45,9 @@ public partial class MainWindow : Window
             Mode = System.Windows.Data.BindingMode.TwoWay
         });
         NormalViewportHost.Content = _viewport;
-        PreviewColumn.Width = new GridLength(_viewModel.SplitRatio, GridUnitType.Star);
-        MetadataColumn.Width = new GridLength(1 - _viewModel.SplitRatio, GridUnitType.Star);
-        FolderTreeColumn.Width = new GridLength(_viewModel.BrowserTreeWidth);
-        ApplyBrowserVisibility();
+        LayoutPicker.SelectedIndex = (int)_viewModel.Layout.Mode;
+        Workspace.SizeChanged += (_, _) => LimitOriginalSizes();
+        BrowserBody.SizeChanged += (_, _) => LimitOriginalSizes();
         ApplyTheme(_viewModel.IsDarkTheme);
     }
 
@@ -77,8 +76,6 @@ public partial class MainWindow : Window
     {
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
-        if (_viewModel.IsBrowserExpanded)
-            _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
         _viewModel.Shutdown();
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
     }
@@ -397,6 +394,8 @@ public partial class MainWindow : Window
 
     private async void BrowserList_PreviewKeyDown(object sender, WpfKeyEventArgs e)
     {
+        if ((e.Key == Key.Apps || (e.Key == Key.F10 && Keyboard.Modifiers == ModifierKeys.Shift)) && sender is Selector { SelectedItem: BrowserEntry target } selector)
+        { e.Handled = true; ShowFileMenu(selector,target,false); return; }
         if (e.Key != Key.Enter)
             return;
         var entry = sender switch
@@ -461,19 +460,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
-    {
-        var available = PreviewColumn.ActualWidth + MetadataColumn.ActualWidth;
-        if (available > 0)
-            _viewModel.SetSplitRatio(PreviewColumn.ActualWidth / available);
-    }
-
-    private void BrowserTreeSplitter_DragCompleted(object sender, DragCompletedEventArgs e) =>
-        _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
-
-    private void BrowserHeightSplitter_DragCompleted(object sender, DragCompletedEventArgs e) =>
-        _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
-
     private void ToggleFullScreen_Click(object sender, RoutedEventArgs e) => ToggleFullScreen();
     private void ToggleFullScreen()
     {
@@ -514,28 +500,10 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(ViewerViewModel.IsDarkTheme))
             ApplyTheme(_viewModel.IsDarkTheme);
         else if (e.PropertyName == nameof(ViewerViewModel.IsBrowserExpanded))
-            ApplyBrowserVisibility();
+            BrowserVisibilityChanged();
         else if (e.PropertyName == nameof(ViewerViewModel.BrowserViewMode) && _viewModel.IsThumbnailView)
         {
             Dispatcher.BeginInvoke(async () => await LoadVisibleThumbnailsAsync());
-        }
-    }
-
-    private void ApplyBrowserVisibility()
-    {
-        if (_viewModel.IsBrowserExpanded)
-        {
-            BrowserRow.MinHeight = 190;
-            BrowserRow.Height = new GridLength(Math.Clamp(_viewModel.BrowserHeight, 190, 620));
-            BrowserSplitterRow.Height = new GridLength(7);
-        }
-        else
-        {
-            if (BrowserRow.ActualHeight >= 190)
-                _viewModel.SetLayoutSizes(FolderTreeColumn.ActualWidth, BrowserRow.ActualHeight);
-            BrowserRow.MinHeight = 0;
-            BrowserRow.Height = new GridLength(0);
-            BrowserSplitterRow.Height = new GridLength(0);
         }
     }
 

@@ -4,7 +4,8 @@ namespace ExifMultimediaMetadataViewer.Services;
 
 public sealed record ViewerSettings
 {
-    public int SettingsVersion { get; init; } = 2;
+    public int SettingsVersion { get; init; } = 3;
+    public WorkspaceLayout? Layout { get; init; }
     public double SplitRatio { get; init; } = 0.49;
     public double BrowserTreeWidth { get; init; } = 260;
     public double BrowserHeight { get; init; } = 300;

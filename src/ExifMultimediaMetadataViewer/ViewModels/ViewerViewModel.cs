@@ -62,15 +62,18 @@ public sealed class ViewerViewModel : ObservableObject
         _filteredFields = CollectionViewSource.GetDefaultView(Fields);
         _filteredFields.Filter = FilterField;
         var settings = _settingsStore.Load();
+        Layout = settings.Layout?.Checked() ?? (WorkspaceLayout.Default with { Original = new PanelSizes(settings.BrowserHeight, settings.SplitRatio, settings.BrowserTreeWidth, settings.IsBrowserExpanded) });
         _splitRatio = settings.SplitRatio;
         _browserSortMode = settings.BrowserSortMode;
         _browserViewMode = settings.BrowserViewMode;
-        _isBrowserExpanded = settings.IsBrowserExpanded;
+        _isBrowserExpanded = Layout.Active.Expanded;
         _browserTreeWidth = settings.BrowserTreeWidth;
         _browserHeight = settings.BrowserHeight;
         _thumbnailSize = settings.ThumbnailSize;
         _isDarkTheme = settings.IsDarkTheme;
         BrowserEntries = new BulkObservableCollection<BrowserEntry>();
+        VisibleEntries = CollectionViewSource.GetDefaultView(BrowserEntries);
+        VisibleEntries.Filter = value => value is BrowserEntry entry && entry.Name.Contains(_browserQuery, StringComparison.CurrentCultureIgnoreCase);
         DirectoryRoots = new ObservableCollection<DirectoryTreeNode>();
         SummarySections = [];
         BrowserSortModes = ["名称", "类型", "修改时间", "大小"];
@@ -80,6 +83,9 @@ public sealed class ViewerViewModel : ObservableObject
     public BulkObservableCollection<MetadataField> Fields { get; }
     public BulkObservableCollection<MetadataField> SummaryFields { get; }
     public ObservableCollection<string> RecentFiles { get; }
+    private string _browserQuery = "";
+    public ICollectionView VisibleEntries { get; }
+    public string BrowserQuery { get => _browserQuery; set { if (SetProperty(ref _browserQuery, value ?? "")) VisibleEntries.Refresh(); } }
     public BulkObservableCollection<BrowserEntry> BrowserEntries { get; }
     public ObservableCollection<DirectoryTreeNode> DirectoryRoots { get; }
     public IReadOnlyList<MetadataSummarySection> SummarySections { get; private set; }
@@ -108,6 +114,8 @@ public sealed class ViewerViewModel : ObservableObject
     public string BrowserSortMode { get => _browserSortMode; set { if (SetProperty(ref _browserSortMode, value)) { SaveSettings(); _ = RefreshBrowserAsync(); } } }
     public BrowserEntry? SelectedBrowserEntry { get => _selectedBrowserEntry; set => SetProperty(ref _selectedBrowserEntry, value); }
     public DirectoryTreeNode? SelectedDirectoryNode { get => _selectedDirectoryNode; private set => SetProperty(ref _selectedDirectoryNode, value); }
+    public WorkspaceLayout Layout { get; private set; }
+    public void StoreLayout(WorkspaceLayout layout) { Layout = layout; SaveSettings(); }
     public double SplitRatio => _splitRatio;
     public double BrowserTreeWidth => _browserTreeWidth;
     public double BrowserHeight => _browserHeight;
@@ -720,9 +728,10 @@ public sealed class ViewerViewModel : ObservableObject
         {
             _settingsStore.Save(new ViewerSettings
             {
-                SplitRatio = _splitRatio,
-                BrowserTreeWidth = _browserTreeWidth,
-                BrowserHeight = _browserHeight,
+                Layout = Layout,
+                SplitRatio = Layout.Original.Preview,
+                BrowserTreeWidth = Layout.Original.Tree,
+                BrowserHeight = Layout.Original.Browser,
                 ThumbnailSize = ThumbnailSize,
                 BrowserSortMode = BrowserSortMode,
                 BrowserViewMode = BrowserViewMode,
