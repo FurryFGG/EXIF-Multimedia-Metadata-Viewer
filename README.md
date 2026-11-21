@@ -1,9 +1,12 @@
-# EXIF 全媒体元数据查看器 v1.2.0
+# EXIF 全媒体元数据查看器 / MetaLens
 
 Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视频仅在本机只读解析；不会上传媒体文件，也不会修改原文件。
-现在版本的文件目录做的很烂，耐心等待后续更新
 
-## 当前功能
+**1.x.x 是旧版 WPF 界面（Legacy UI）；2.x.x 是新版原生 WinUI 3 界面。** 想保留熟悉的操作方式，选 [v1.2.3 旧 UI 源码](https://github.com/FurryFGG/EXIF-Multimedia-Metadata-Viewer/tree/v1.2.3)；想用新界面、视频播放和更多排序方式，选 [v2.0.1 新 UI 源码](https://github.com/FurryFGG/EXIF-Multimedia-Metadata-Viewer/tree/v2.0.1)。这两个版本可在同一台电脑上并存，配置相互独立。
+
+[逐版更新、源码回退点与安装包校验值](VERSION-HISTORY.md) · [安装包下载（Releases → Assets → Setup.exe）](https://github.com/FurryFGG/EXIF-Multimedia-Metadata-Viewer/releases)
+
+## 本分支源码基线的功能（WPF v1.2.0）
 
 - 资源管理器式文件浏览器：返回、前进、上级、刷新、可编辑地址栏、按需展开文件夹树和可拖动分隔条。
 - 缩略图横向多列自动换行，并提供缩略图、列表、详细信息三种视图、自然排序和缩略图尺寸调节。
