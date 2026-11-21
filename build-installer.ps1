@@ -15,6 +15,7 @@ if ($CandidateSuffix -and $CandidateSuffix -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*
 
 $releaseName = "v$version" + $(if ($CandidateSuffix) { "-$CandidateSuffix" } else { "" })
 $releaseRoot = Join-Path $repoRoot "releases\$releaseName"
+if ($CandidateSuffix -match '^build\.[0-9]+$' -and !(Test-Path -LiteralPath $releaseRoot)) { $releaseRoot = Join-Path $repoRoot "releases/v$version/$CandidateSuffix" }
 $publishPath = Join-Path $releaseRoot "app"
 $exeName = "EXIF全媒体元数据查看器_v$version.exe"
 $installerBaseName = "EXIF全媒体元数据查看器_v${version}_Setup"

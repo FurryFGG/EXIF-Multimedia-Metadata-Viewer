@@ -15,6 +15,9 @@ public sealed partial class MainWindow
             case "media":
                 MediaTest();
                 break;
+            case "formats":
+                FormatTest();
+                break;
             case "workspace":
                 WorkspaceTest();
                 break;
@@ -23,6 +26,37 @@ public sealed partial class MainWindow
                 OtherTests();
                 break;
         }
+    }
+
+    // Use the real preview decoder, presenter and raster scale, not a metadata-only probe.
+    async void FormatTest()
+    {
+        string output = Environment.GetEnvironmentVariable("METALENS_QA_OUTPUT")!;
+        var folder = Environment.GetEnvironmentVariable("METALENS_QA_SAMPLES")!;
+        var results = new List<object>();
+        try
+        {
+            foreach (var extension in new[] { ".png", ".tiff", ".dng", ".nef" })
+            {
+                var file = Directory.EnumerateFiles(folder).Single(x => Path.GetExtension(x).Equals(extension, StringComparison.OrdinalIgnoreCase));
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                await viewer.Show(file, lifetime.Token);
+                var bitmap = viewer.Image ?? throw new InvalidDataException($"{extension}: {viewer.Error}");
+                var (w,h) = (bitmap.PixelWidth, bitmap.PixelHeight);
+                if (w <= 0 || h <= 0 || (extension == ".png" && (w,h) != (360,640)) || (extension == ".tiff" && (w,h) != (1024,512)))
+                    throw new InvalidDataException($"Unexpected decoded dimensions {w} x {h} for {extension}");
+                var decodeMs = timer.ElapsedMilliseconds;
+                foreach (double scale in new[]{ .5,1,2,4 }) {
+                    viewer.SetZoom(scale);
+                    if (Math.Abs(viewer.RasterWidth - w * scale) > 1) throw new Exception("Physical scale: " + scale);
+                }
+                viewer.Rotate();
+                results.Add(new { extension,w,h,viewer.Kind,decodeMs,viewer.Turn });
+            }
+            await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new {passed=true, results}));
+        }
+        catch(Exception ex) { await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { passed=false, results, error=ex.ToString() })); }
+        finally { Close(); }
     }
 
     async void OtherTests()

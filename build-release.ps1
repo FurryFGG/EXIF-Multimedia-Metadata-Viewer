@@ -19,6 +19,7 @@ if ($CandidateSuffix -and $CandidateSuffix -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*
 
 $releaseName = "v$version" + $(if ($CandidateSuffix) { "-$CandidateSuffix" } else { "" })
 $releaseRoot = Join-Path $repoRoot "releases\$releaseName"
+if ($CandidateSuffix -match '^build\.[0-9]+$' -and !(Test-Path -LiteralPath $releaseRoot)) { $releaseRoot = Join-Path $repoRoot "releases/v$version/$CandidateSuffix" }
 $appOutput = Join-Path $releaseRoot "app"
 $exeName = "EXIF全媒体元数据查看器_v$version.exe"
 if (Test-Path -LiteralPath $releaseRoot) {
@@ -63,6 +64,15 @@ try {
 
     $stagedExe = Join-Path $stagingPath $exeName
     $assets=Get-Content -LiteralPath (Join-Path (Split-Path $projectFile) 'obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
+    # Runtime packs can be absent from the restore library list but present in the published deps manifest.
+    $deps=Get-Content -LiteralPath (Join-Path $stagingPath "EXIF全媒体元数据查看器_v$version.deps.json") -Raw | ConvertFrom-Json -AsHashtable
+    $runtimeKey=$deps.libraries.Keys | Where-Object { $_ -match '^(runtimepack\.)?Microsoft\.NETCore\.App\.Runtime\.win-x64/' } | Select-Object -First 1
+    if (!$runtimeKey) { throw 'Cannot identify the published .NET runtime pack.' }
+    $runtimePackage=($runtimeKey -replace '^runtimepack\.','').ToLowerInvariant()
+    $runtimeFolder=$assets.packageFolders.Keys | ForEach-Object {Join-Path $_ $runtimePackage} | Where-Object {Test-Path -LiteralPath $_ -PathType Container} | Select-Object -First 1
+    if (!$runtimeFolder) { throw "Cannot find license files for $runtimePackage" }
+    $runtimeNotices=[IO.Directory]::CreateDirectory((Join-Path $stagingPath "licenses/$runtimePackage")).FullName
+    foreach ($filename in 'LICENSE.TXT','THIRD-PARTY-NOTICES.TXT') {Copy-Item -LiteralPath (Join-Path $runtimeFolder $filename) -Destination $runtimeNotices}
     foreach ($lib in $assets.libraries.Values | Where-Object { $_.type -eq 'package' -and $_.path -match '^(microsoft\.netcore\.app\.runtime\.win-x64|microsoft\.windowsappsdk\.(?!ddlm)|microsoft\.windows\.sdk\.net\.ref|microsoft\.web\.webview2|microsoft\.windows\.cswinrt)' -and $_.path -notmatch 'buildtools' }) {
         $source=$assets.packageFolders.Keys | ForEach-Object { Join-Path $_ $lib.path } | Where-Object { Test-Path $_ -PathType Container } | Select-Object -First 1
         $notices=Get-ChildItem -LiteralPath $source -File | Where-Object Name -match '^(license|notice|third-party-notices|thirdpartynotices)(\..*)?$'
@@ -128,6 +138,7 @@ try {
 - Runtime: win-x64 self-contained
 - Main EXE: app\$exeName
 - SHA-256: $hash
+- Managed UI DLL SHA-256: $((Get-FileHash -LiteralPath (Join-Path $appOutput ([IO.Path]::ChangeExtension($exeName,'dll')))).Hash)
 - Source commit: $(git -C $repoRoot rev-parse HEAD)
 "@
     Set-Content -LiteralPath (Join-Path $releaseRoot "BUILD-INFO.md") -Value $buildInfo -Encoding UTF8
