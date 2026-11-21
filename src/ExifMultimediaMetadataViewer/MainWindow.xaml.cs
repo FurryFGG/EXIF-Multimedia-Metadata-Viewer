@@ -33,8 +33,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var version = typeof(MainWindow).Assembly.GetName().Version!.ToString(3);
+        Title += " v" + version;
+        VersionBadge.Text = "  v" + version;
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        _viewport.DataContext = _viewModel; // Fullscreen reparents this control; retain source and pixel zoom in transit.
         _viewport.SetBinding(ImageViewport.SourceProperty, new System.Windows.Data.Binding(nameof(ViewerViewModel.PreviewImage)));
         _viewport.SetBinding(ImageViewport.ZoomProperty, new System.Windows.Data.Binding(nameof(ViewerViewModel.Zoom))
         {

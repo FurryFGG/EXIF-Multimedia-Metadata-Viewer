@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ExifMultimediaMetadataViewer.Controls"
-        Title="EXIF 全媒体元数据查看器 v1.2.1"
+        Title="EXIF 全媒体元数据查看器"
         UseLayoutRounding="True" Width="1480" Height="920" MinWidth="1040" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
@@ -26,7 +26,7 @@
                         </Border>
                         <StackPanel Margin="10,0,16,0" VerticalAlignment="Center">
                             <TextBlock FontSize="15" FontWeight="SemiBold">
-                                <Run Text="EXIF 全媒体元数据查看器" /><Run Text="  v1.2.1" Foreground="{DynamicResource AccentBrush}" />
+                                <Run Text="EXIF 全媒体元数据查看器" /><Run x:Name="VersionBadge" Foreground="{DynamicResource AccentBrush}" />
                             </TextBlock>
                             <TextBlock Text="Windows 本地只读 · 不上传或修改媒体文件" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" />
                         </StackPanel>
@@ -34,6 +34,7 @@
                     <WrapPanel VerticalAlignment="Center">
                         <TextBlock Text="布局" VerticalAlignment="Center" Margin="4,0" />
                         <ComboBox x:Name="LayoutPicker" SelectionChanged="LayoutPicker_Changed" VerticalAlignment="Center" ToolTip="切换工作区布局" Margin="3">
+                            <ComboBox.ContextMenu><ContextMenu><MenuItem Header="恢复三个布局的默认尺寸" Click="RestoreLayout_Click"/></ContextMenu></ComboBox.ContextMenu>
                             <ComboBoxItem Content="原版布局"/><ComboBoxItem Content="三栏布局"/><ComboBoxItem Content="双层布局"/>
                         </ComboBox>
                         <Button Content="打开文件" Click="OpenFile_Click" />
@@ -72,7 +73,8 @@
                             <ComboBox Width="80" Margin="4,1" ItemsSource="{Binding BrowserSortModes}" SelectedItem="{Binding BrowserSortMode}"/>
                             <ComboBox Width="83" Margin="4,1" ToolTip="文件视图" ItemsSource="{Binding BrowserViewModes}" SelectedItem="{Binding BrowserViewMode}"/>
                             <Slider Width="74" Minimum="96" Maximum="260" Margin="4,0" VerticalAlignment="Center" ToolTip="缩略图大小" Value="{Binding ThumbnailSize}"/>
-                            <TextBox Width="100" Padding="4,1" Margin="3,1" ToolTip="筛选当前目录文件名" AutomationProperties.Name="筛选文件名" Text="{Binding BrowserQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                            <TextBlock Text="筛选" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                            <TextBox Width="90" Padding="4,1" Margin="3,1" ToolTip="筛选当前目录文件名" AutomationProperties.Name="筛选文件名" Text="{Binding BrowserQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
                             <TextBlock Text="{Binding FileCountText}" ToolTip="{Binding BrowserStatus}" VerticalAlignment="Center" Margin="4,1"/>
                         </WrapPanel>
                     </StackPanel>
@@ -85,7 +87,7 @@
                         <Border Grid.Column="0" Background="{DynamicResource PanelAltBrush}" BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="1" CornerRadius="5" Padding="4">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="文件夹 / Folders" FontWeight="SemiBold" Margin="7,5,7,7" />
+                                <TextBlock DockPanel.Dock="Top" Text="文件夹" ToolTip="文件夹 / Folders" FontWeight="SemiBold" Margin="7,5,7,7" />
                                 <TreeView x:Name="FolderTree" ItemsSource="{Binding DirectoryRoots}"
                                           SelectedItemChanged="FolderTree_SelectedItemChanged"
                                           TreeViewItem.Expanded="FolderTreeItem_Expanded"
@@ -112,7 +114,7 @@
                         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                                       ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="False"
                                       Cursor="SizeWE" Background="{DynamicResource BorderBrush}"
-                                      x:Name="TreeSplitter" DragCompleted="WorkspaceSplit_End" />
+                                      x:Name="TreeSplitter" KeyUp="WorkspaceSplit_KeyUp" DragCompleted="WorkspaceSplit_End" />
 
                         <Grid Grid.Column="2">
                             <Grid>
@@ -218,7 +220,7 @@
                 </Grid>
             </Border>
 
-            <GridSplitter x:Name="BrowserSplitter" DragCompleted="WorkspaceSplit_End" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}"/>
+            <GridSplitter x:Name="BrowserSplitter" KeyUp="WorkspaceSplit_KeyUp" DragCompleted="WorkspaceSplit_End" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}"/>
                 <Border x:Name="PreviewPanel" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="10">
                     <Grid>
@@ -258,7 +260,7 @@
                         </Grid>
                     </Grid>
                 </Border>
-                <GridSplitter x:Name="MediaSplitter" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}" DragCompleted="WorkspaceSplit_End"/>
+                <GridSplitter x:Name="MediaSplitter" ResizeBehavior="PreviousAndNext" Background="{DynamicResource BorderBrush}" KeyUp="WorkspaceSplit_KeyUp" DragCompleted="WorkspaceSplit_End"/>
                 <Border x:Name="MetadataPanel" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="9">
                     <TabControl Background="{DynamicResource PanelBrush}" BorderThickness="0">

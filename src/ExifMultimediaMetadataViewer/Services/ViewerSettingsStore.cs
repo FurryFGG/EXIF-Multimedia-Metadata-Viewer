@@ -22,8 +22,7 @@ public sealed class ViewerSettingsStore : IDisposable
     private readonly Timer _saveTimer;
     private ViewerSettings? _pendingSettings;
     private readonly string _settingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "EXIF Multimedia Metadata Viewer",
+        ViewerData.Root,
         "viewer-settings.json");
 
     public ViewerSettingsStore()

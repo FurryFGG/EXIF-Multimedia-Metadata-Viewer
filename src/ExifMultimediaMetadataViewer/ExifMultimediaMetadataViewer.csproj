@@ -20,7 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ExifMetadata.Core\ExifMetadata.Core.csproj" />
-    <Content Include="..\..\third_party\exiftool\**\*">
+    <!-- POD is the standalone Perl API manual, not parser code or camera tag tables. -->
+    <Content Include="..\..\third_party\exiftool\**\*" Exclude="..\..\third_party\exiftool\**\*.pod">
       <Link>tools\exiftool\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
@@ -35,6 +36,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>
+    <Content Include="..\..\third_party\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
     <Content Include="..\..\third_party\ffmpeg-build-info.txt">
       <Link>tools\ffmpeg\ffmpeg-build-info.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

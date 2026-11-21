@@ -1,5 +1,6 @@
 param(
-    [string]$CandidateSuffix = ""
+    [string]$CandidateSuffix = "",
+    [string]$SampleDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,7 +50,10 @@ $stagingParent = Join-Path $repoRoot "artifacts\staging"
 $stagingPath = Join-Path $stagingParent ([Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
 try {
-    & $dotnetPath run --project (Join-Path $repoRoot "tests\ExifMetadata.IntegrationTests\ExifMetadata.IntegrationTests.csproj") -c Release -- $repoRoot
+    $testProject = Join-Path $repoRoot "tests\ExifMetadata.IntegrationTests\ExifMetadata.IntegrationTests.csproj"
+    $sampleArgs = @()
+    if ($SampleDirectory) { $sampleArgs = @((Resolve-Path -LiteralPath $SampleDirectory).Path) }
+    & $dotnetPath run --project $testProject -c Release -- $repoRoot @sampleArgs
     if ($LASTEXITCODE -ne 0) { throw "Integration tests failed; release was not created." }
 
     & $dotnetPath publish $projectFile -c Release -r win-x64 --self-contained true `
@@ -73,6 +77,10 @@ try {
         throw "Published EXE file version '$($versionInfo.FileVersion)' does not match project version '$version'."
     }
 
+    if ($SampleDirectory) {
+        & $dotnetPath run --no-build --project $testProject -c Release -- $repoRoot @sampleArgs (Join-Path $stagingPath "tools")
+        if ($LASTEXITCODE -ne 0) { throw "Integration tests against packaged tools failed." }
+    }
     $smokeProcess = Start-Process -FilePath $stagedExe -PassThru
     $smokeDeadline = [DateTime]::UtcNow.AddSeconds(10)
     while ([DateTime]::UtcNow -lt $smokeDeadline -and -not $smokeProcess.HasExited) {
@@ -108,6 +116,11 @@ try {
     Write-Host "Main EXE: $(Join-Path $appOutput $exeName)"
 } finally {
     if (Test-Path -LiteralPath $stagingPath) {
-        Remove-Item -LiteralPath $stagingPath -Recurse -Force
+        $resolvedStage = (Resolve-Path -LiteralPath $stagingPath).Path
+        if ([IO.Path]::GetDirectoryName($resolvedStage) -ne (Resolve-Path -LiteralPath $stagingParent).Path -or [IO.Path]::GetFileName($resolvedStage) -notmatch '^[a-f0-9]{32}
+    }
+}
+) { throw "Unsafe staging path: $resolvedStage" }
+        Remove-Item -LiteralPath $resolvedStage -Recurse -Force
     }
 }

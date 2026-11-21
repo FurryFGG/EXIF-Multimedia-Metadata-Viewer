@@ -73,7 +73,17 @@ public partial class MainWindow
                 Put(FileBrowserPanel,0,0,1,3); Put(BrowserSplitter,1,0,1,3); Put(PreviewPanel,2,0); Put(MediaSplitter,2,1); Put(MetadataPanel,2,2); break;
         }
     }
-    private void WorkspaceSplit_End(object sender, DragCompletedEventArgs e)
+    private void RestoreLayout_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.StoreLayout(WorkspaceLayout.Default);
+        LayoutPicker.SelectedIndex = 0;
+        _viewModel.IsBrowserExpanded = true;
+        ArrangeWorkspace();
+    }
+    private void WorkspaceSplit_KeyUp(object sender, KeyEventArgs e)
+    { if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down) RememberSplitter(sender); }
+    private void WorkspaceSplit_End(object sender, DragCompletedEventArgs e) => RememberSplitter(sender);
+    private void RememberSplitter(object sender)
     {
         var layout = _viewModel.Layout; var p = layout.Active;
         bool orig = layout.Mode == LayoutMode.Original, stacked = layout.Mode == LayoutMode.Stacked;

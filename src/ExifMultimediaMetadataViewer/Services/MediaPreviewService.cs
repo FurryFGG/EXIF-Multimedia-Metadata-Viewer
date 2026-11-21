@@ -17,8 +17,7 @@ public sealed class MediaPreviewService
     private static readonly BoundedLruCache<string, BitmapSource> ThumbnailCache =
         new(192, StringComparer.OrdinalIgnoreCase);
     private static readonly string ThumbnailCacheDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "EXIF Multimedia Metadata Viewer", "thumbnail-cache", "v1");
+        ViewerData.Root, "thumbnail-cache", "v1");
     private static int _cleanupStarted;
 
     public async Task<(BitmapSource? Image, int? Width, int? Height)> LoadThumbnailAsync(

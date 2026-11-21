@@ -1,9 +1,10 @@
 <Project>
   <PropertyGroup>
-    <Version>1.2.1</Version>
-    <AssemblyVersion>1.2.1.0</AssemblyVersion>
-    <FileVersion>1.2.1.0</FileVersion>
-    <InformationalVersion>1.2.1</InformationalVersion>
+    <Version>1.2.2</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyVersion>1.2.2.0</AssemblyVersion>
+    <FileVersion>1.2.2.0</FileVersion>
+    <InformationalVersion>1.2.2</InformationalVersion>
     <DebugType>None</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>

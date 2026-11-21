@@ -6,6 +6,12 @@ using ExifMetadata.Core.Services;
 var projectRoot = args.Length > 0 ? Path.GetFullPath(args[0]) : Directory.GetCurrentDirectory();
 var exifToolPath = Path.Combine(projectRoot, "third_party", "exiftool", "exiftool.exe");
 var ffprobePath = Path.Combine(projectRoot, "third_party", "ffmpeg", "bin", "ffprobe.exe");
+if (args.Length > 2) {
+    var packagedTools = Path.GetFullPath(args[2]);
+    exifToolPath = Path.Combine(packagedTools, "exiftool", "exiftool.exe");
+    ffprobePath = Path.Combine(packagedTools, "ffmpeg", "ffprobe.exe");
+    Console.WriteLine("Testing staged tool binaries.");
+}
 var sampleDirectory = args.Length > 1
     ? Path.GetFullPath(args[1])
     : Path.Combine(projectRoot, "test-samples");

@@ -6,8 +6,7 @@ public sealed class RecentFilesStore
 {
     private const int MaximumEntries = 10;
     private readonly string _settingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "EXIF Multimedia Metadata Viewer",
+        ViewerData.Root,
         "recent-files.json");
 
     public IReadOnlyList<string> Load()
