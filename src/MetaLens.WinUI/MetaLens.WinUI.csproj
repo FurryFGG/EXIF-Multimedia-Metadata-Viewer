@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows10.0.26100.0</TargetFramework><TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
-    <Version>2.0.0</Version><AssemblyVersion>$(Version).0</AssemblyVersion><FileVersion>$(Version).0</FileVersion><InformationalVersion>$(Version)</InformationalVersion>
     <AssemblyName>EXIF全媒体元数据查看器_v$(Version)</AssemblyName><RootNamespace>MetaLens.WinUI</RootNamespace>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier><PlatformTarget>x64</PlatformTarget><UseWinUI>true</UseWinUI><WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><SelfContained>true</SelfContained><PublishSingleFile>false</PublishSingleFile><PublishTrimmed>false</PublishTrimmed>
@@ -9,12 +8,53 @@
     <ApplicationManifest>app.manifest</ApplicationManifest><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.7.0" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.7.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.7.0" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.7.0" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9457" PrivateAssets="all" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/ViewerData.cs" Link="Shared/ViewerData.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/WorkspaceLayout.cs" Link="Shared/WorkspaceLayout.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/ViewerSettingsStore.cs" Link="Shared/ViewerSettingsStore.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/RecentFilesStore.cs" Link="Shared/RecentFilesStore.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/BoundedLruCache.cs" Link="Shared/BoundedLruCache.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/ExternalOpenService.cs" Link="Shared/ExternalOpenService.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/FileBrowserService.cs" Link="Shared/FileBrowserService.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/ViewModels/DirectoryTreeNode.cs" Link="Shared/DirectoryTreeNode.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/ViewModels/BulkObservableCollection.cs" Link="Shared/BulkObservableCollection.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/ViewModels/ObservableObject.cs" Link="Shared/ObservableObject.cs" />
+    <Compile Include="../ExifMetadata.Core/Services/ProcessRunner.cs" Link="Shared/ProcessRunner.cs" />
+    <!-- POD is the standalone Perl API manual, not parser code or camera tag tables. -->
+    <Content Include="..\..\third_party\exiftool\**\*" Exclude="..\..\third_party\exiftool\**\*.pod">
+      <Link>tools\exiftool\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\third_party\ffmpeg\bin\**\*">
+      <Link>tools\ffmpeg\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\third_party\ffmpeg\LICENSE-LGPL-3.0.txt">
+      <Link>tools\ffmpeg\LICENSE-LGPL-3.0.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\third_party\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+    <Content Include="..\..\third_party\ffmpeg-build-info.txt">
+      <Link>tools\ffmpeg\ffmpeg-build-info.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+    <Compile Include="../ExifMultimediaMetadataViewer/Services/MetadataSummaryBuilder.cs" Link="Shared/MetadataSummaryBuilder.cs" />
+    <Compile Include="../ExifMultimediaMetadataViewer/ViewModels/MetadataSummarySection.cs" Link="Shared/MetadataSummarySection.cs" />
     <ProjectReference Include="../ExifMetadata.Core/ExifMetadata.Core.csproj" />
   </ItemGroup>
   <Target Name="PublishXamlAssets" BeforeTargets="ComputeFilesToPublish" DependsOnTargets="Build">
+    <ItemGroup>
+      <_UiNotice Include="$(PkgMicrosoft_WindowsAppSDK_WinUI)/license.txt;$(PkgMicrosoft_WindowsAppSDK_WinUI)/NOTICE.txt" />
+      <_RtNotice Include="$(PkgMicrosoft_WindowsAppSDK_Runtime)/license.txt;$(PkgMicrosoft_WindowsAppSDK_Runtime)/NOTICE.txt;$(PkgMicrosoft_WindowsAppSDK_Runtime)/WindowsAppSDK-VersionInfo.json" />
+      <ResolvedFileToPublish Include="@(_UiNotice)" RelativePath="licenses/WindowsAppSDK.WinUI/%(_UiNotice.Filename)%(_UiNotice.Extension)" CopyToPublishDirectory="PreserveNewest" />
+      <ResolvedFileToPublish Include="@(_RtNotice)" RelativePath="licenses/WindowsAppSDK.Runtime/%(_RtNotice.Filename)%(_RtNotice.Extension)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
     <ItemGroup><_XamlAsset Include="$(TargetDir)resources.pri;$(TargetDir)**\*.xbf"/><ResolvedFileToPublish Include="@(_XamlAsset)"><RelativePath>%(_XamlAsset.RecursiveDir)%(_XamlAsset.Filename)%(_XamlAsset.Extension)</RelativePath><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory></ResolvedFileToPublish></ItemGroup>
   </Target>
 </Project>
