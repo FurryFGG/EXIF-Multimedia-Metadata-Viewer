@@ -1,0 +1,9 @@
+Testing staged tool binaries.
+C0211.MP4: ExifTool Success (211 fields), FFprobe Success (151 fields)
+DJI_20260929164914_0035_D.DNG: ExifTool Success (213 fields), FFprobe NotRun (0 fields)
+DJI_20260929170441_0085_D.MP4: ExifTool Success (164 fields), FFprobe Success (194 fields)
+DSC_3683.NEF: ExifTool Success (17,779 fields), FFprobe NotRun (0 fields)
+_SNA6816.ARW: ExifTool Success (25,713 fields), FFprobe NotRun (0 fields)
+_SNA6816.jpg: ExifTool Success (313 fields), FFprobe NotRun (0 fields)
+损坏文件.jpg: ExifTool Partial (收到部分结果；请检查解析器警告和退出码。)
+PASS: 6 sample files and export/path checks.

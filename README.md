@@ -1,6 +1,8 @@
-# EXIF 全媒体元数据查看器 v1.2.2
+# EXIF查看器 v1.2.3 · Legacy
 
 Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视频仅在本机只读解析；不会上传媒体文件，也不会修改原文件。
+
+本版从 v1.2.2 保留 WPF 布局、旧排序和原有摘要。可见文件夹新增单图或 2×2 内容预览，空目录保持原样。双版本的安装包、测试和回退信息见 [双版本发布报告](DUAL_RELEASE_REPORT.md)。
 
 ## 当前功能
 
@@ -33,15 +35,15 @@ Windows x64 桌面媒体检查工具，默认使用中文界面。照片与视�
 
 ## 构建
 
-运行 `.\build-release.ps1`。脚本从项目统一版本号读取 `1.2.2`，先发布到临时目录并检查 EXE、ExifTool、FFmpeg/FFprobe 和文件版本，再移动到 `releases\v1.2.2\app`。目标版本目录已存在时脚本会拒绝覆盖；显式候选构建可使用 `-CandidateSuffix rc1` 创建独立目录。
+运行 `.\build-release.ps1`。脚本从项目统一版本号读取 `1.2.3`，先发布到临时目录并检查 EXE、ExifTool、FFmpeg/FFprobe 和文件版本，再移动到 `releases\v1.2.3\app`。目标版本目录已存在时脚本会拒绝覆盖；显式候选构建可使用 `-CandidateSuffix rc1` 创建独立目录。
 
-先安装 Inno Setup 6，再运行 `.\build-installer.ps1 -SkipPublish` 生成安装程序。v1.2.2 默认输出到 `releases\v1.2.2\EXIF全媒体元数据查看器_v1.2.2_Setup.exe`。主程序为 `releases\v1.2.2\app\EXIF全媒体元数据查看器_v1.2.2.exe`。脚本拒绝静默覆盖同名产物。
+先安装 Inno Setup 6，再运行 `.\build-installer.ps1 -SkipPublish` 生成安装程序。v1.2.3 默认输出到 `releases\v1.2.3\EXIF查看器_v1.2.3_Setup.exe`。主程序为 `releases\v1.2.3\app\EXIF查看器_v1.2.3.exe`。脚本拒绝静默覆盖同名产物。
 
-双击 `EXIF全媒体元数据查看器_v1.2.2.exe` 启动。也可以在 Windows 文件选择器中打开媒体，或把媒体文件拖到窗口。
+双击 `EXIF查看器_v1.2.3.exe` 启动。也可以在 Windows 文件选择器中打开媒体，或把媒体文件拖到窗口。
 
 ## 测试
 
-v1.2.2 布局截图、体积、性能和验收边界见 [验收报告](docs/v1.2.2/VALIDATION.md)。正式发布可传 `-SampleDirectory`，在暂存包内复验解析器再归档。
+v1.2.3 的布局回归、与 v1.2.2 的包体积对比、性能和验收边界见 [双版本发布报告](DUAL_RELEASE_REPORT.md)。正式发布可传 `-SampleDirectory`，在暂存包内复验解析器再归档。
 
 不带样片时运行：
 

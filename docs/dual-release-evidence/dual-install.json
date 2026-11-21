@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "versions": [
+    "1.2.3",
+    "2.0.1"
+  ],
+  "installedFileHashesChecked": [
+    767,
+    984
+  ],
+  "simultaneousWindows": true,
+  "winuiRelaunchedAfterLegacyUninstall": true,
+  "bothUninstalled": true,
+  "userChoiceUnchanged": true
+}

@@ -1,0 +1,15 @@
+Testing staged tool binaries.
+PARITY C0211.MP4: old=362 new=362 different=0 lastAccessOnly=0 json=362 csv=362 oldMs=296 newMs=286
+C0211.MP4: ExifTool Success (211 fields), FFprobe Success (151 fields)
+PARITY DJI_20260929164914_0035_D.DNG: old=213 new=213 different=0 lastAccessOnly=1 json=213 csv=213 oldMs=291 newMs=263
+DJI_20260929164914_0035_D.DNG: ExifTool Success (213 fields), FFprobe NotRun (0 fields)
+PARITY DJI_20260929170441_0085_D.MP4: old=358 new=358 different=0 lastAccessOnly=0 json=358 csv=358 oldMs=372 newMs=309
+DJI_20260929170441_0085_D.MP4: ExifTool Success (164 fields), FFprobe Success (194 fields)
+PARITY DSC_3683.NEF: old=17779 new=17779 different=0 lastAccessOnly=1 json=17779 csv=17779 oldMs=2702 newMs=2740
+DSC_3683.NEF: ExifTool Success (17,779 fields), FFprobe NotRun (0 fields)
+PARITY _SNA6816.ARW: old=25713 new=25713 different=0 lastAccessOnly=1 json=25713 csv=25713 oldMs=4000 newMs=3544
+_SNA6816.ARW: ExifTool Success (25,713 fields), FFprobe NotRun (0 fields)
+PARITY _SNA6816.jpg: old=313 new=313 different=0 lastAccessOnly=1 json=313 csv=313 oldMs=376 newMs=303
+_SNA6816.jpg: ExifTool Success (313 fields), FFprobe NotRun (0 fields)
+损坏文件.jpg: ExifTool Partial (收到部分结果；请检查解析器警告和退出码。)
+PASS: 6 sample files and export/path checks.
