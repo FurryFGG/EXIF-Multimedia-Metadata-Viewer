@@ -1,4 +1,4 @@
-#define AppName "EXIF Multimedia Metadata Viewer"
+#define AppName "MetaLens 2"
 #define AppExeName GetEnv("EXIF_APP_EXE_NAME")
 #define AppVersion GetEnv("EXIF_INSTALLER_VERSION")
 #define PublishDir GetEnv("EXIF_PUBLISH_DIR")
@@ -6,12 +6,12 @@
 #define InstallerBaseName GetEnv("EXIF_INSTALLER_BASE_NAME")
 
 [Setup]
-AppId={{88AB7794-7E8B-40E7-8BD2-A0FAF16DA0D3}
+AppId={{32AF6637-846F-40AC-ABAF-103524876ED8}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=FurryFGG
 AppPublisherURL=https://github.com/FurryFGG/EXIF-Multimedia-Metadata-Viewer
-DefaultDirName={localappdata}\Programs\EXIF Multimedia Metadata Viewer
+DefaultDirName={localappdata}\Programs\MetaLens 2
 DefaultGroupName={#AppName}
 UninstallDisplayName={#AppName}
 PrivilegesRequired=lowest

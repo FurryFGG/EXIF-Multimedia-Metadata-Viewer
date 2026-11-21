@@ -22,4 +22,8 @@ The application launches these tools as separate local processes. It does not li
 
 ## .NET
 
-The application targets .NET 10 WPF and is published self-contained for win-x64. The .NET runtime is not copied into this source repository; it is included in the release output produced by build-release.ps1. .NET runtime licensing is provided by Microsoft with the runtime distribution.
+MetaLens v2 targets .NET 10 and is published self-contained for win-x64. The .NET runtime is distributed under the MIT license with third-party notices. The retained v1 project uses WPF; v2 does not load WPF.
+
+## Windows App SDK / WinUI 3 (v2 only)
+
+Microsoft.WindowsAppSDK.WinUI and Microsoft.WindowsAppSDK.Runtime 2.7.0 are restored from NuGet. The runtime package's WindowsAppSDK-VersionInfo.json identifies its channel as stable. The corresponding Microsoft license and NOTICE files are copied to licenses/ in the published application. Microsoft.Windows.SDK.BuildTools is a build-only dependency. Windows MediaPlayerElement uses the media codecs available on the machine; FFmpeg produces an independent preview frame.

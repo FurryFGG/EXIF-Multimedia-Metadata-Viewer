@@ -5,9 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
-$versionFile = Join-Path $repoRoot "Directory.Build.props"
+$versionFile = Join-Path $repoRoot 'Directory.Build.props'
 [xml]$versionProject = Get-Content -LiteralPath $versionFile
-$version = [string]$versionProject.Project.PropertyGroup.Version
+$version = [string]$versionProject.Project.PropertyGroup.MetaLensVersion
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid project Version: $version" }
 if ($CandidateSuffix -and $CandidateSuffix -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*$') {
     throw "CandidateSuffix may contain only letters, digits, dots and hyphens."

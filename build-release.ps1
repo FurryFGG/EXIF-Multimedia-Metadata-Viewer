@@ -5,10 +5,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
-$projectFile = Join-Path $repoRoot "src\ExifMultimediaMetadataViewer\ExifMultimediaMetadataViewer.csproj"
-$versionFile = Join-Path $repoRoot "Directory.Build.props"
+$projectFile = Join-Path $repoRoot "src\MetaLens.WinUI\MetaLens.WinUI.csproj"
+$versionFile = Join-Path $repoRoot 'Directory.Build.props'
 [xml]$versionProject = Get-Content -LiteralPath $versionFile
-$version = [string]$versionProject.Project.PropertyGroup.Version
+$version = [string]$versionProject.Project.PropertyGroup.MetaLensVersion
 if ($version -notmatch '^\d+\.\d+\.\d+$') {
     throw "The project Version must use semantic version format, for example 1.2.0."
 }
@@ -61,6 +61,12 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     $stagedExe = Join-Path $stagingPath $exeName
+    $assets=Get-Content -LiteralPath (Join-Path (Split-Path $projectFile) 'obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
+    foreach ($lib in $assets.libraries.Values | Where-Object { $_.type -eq 'package' -and $_.path -match '^(microsoft\.netcore\.app\.runtime\.win-x64|microsoft\.windowsappsdk\.(?!ddlm)|microsoft\.windows\.sdk\.net\.ref|microsoft\.web\.webview2|microsoft\.windows\.cswinrt)' -and $_.path -notmatch 'buildtools' }) {
+        $source=$assets.packageFolders.Keys | ForEach-Object { Join-Path $_ $lib.path } | Where-Object { Test-Path $_ -PathType Container } | Select-Object -First 1
+        $notices=Get-ChildItem -LiteralPath $source -File | Where-Object Name -match '^(license|notice|third-party-notices|thirdpartynotices)(\..*)?$'
+        if ($notices) { $dest=Join-Path $stagingPath ('licenses/' + $lib.path); [IO.Directory]::CreateDirectory($dest) | Out-Null; $notices | Copy-Item -Destination $dest }
+    }
     foreach ($requiredOutput in @(
         $stagedExe,
         (Join-Path $stagingPath "tools\exiftool\exiftool.exe"),
@@ -81,7 +87,16 @@ try {
         & $dotnetPath run --no-build --project $testProject -c Release -- $repoRoot @sampleArgs (Join-Path $stagingPath "tools")
         if ($LASTEXITCODE -ne 0) { throw "Integration tests against packaged tools failed." }
     }
-    $smokeProcess = Start-Process -FilePath $stagedExe -PassThru
+    foreach ($file in 'App.xbf','MainWindow.xbf','PreviewView.xbf','MetadataView.xbf','ExplorerView.xbf','resources.pri','Microsoft.UI.Xaml.dll','licenses/WindowsAppSDK.WinUI/license.txt','licenses/WindowsAppSDK.Runtime/NOTICE.txt') {
+        if (!(Test-Path -LiteralPath (Join-Path $stagingPath $file) -PathType Leaf)) { throw "Missing WinUI resource: $file" }
+    }
+    if ($SampleDirectory) {
+        $qaDir = Join-Path $repoRoot ('artifacts/qa200/publish-' + [IO.Path]::GetFileName($stagingPath))
+        foreach ($mode in 'media','workspace','restore') {
+            & (Join-Path $repoRoot 'tests/Test-WinUIScenario.ps1') -Executable $stagedExe -SampleDirectory $sampleArgs[0] -Mode $mode -ArtifactDirectory $qaDir
+        }
+    }
+    $smokeProcess = Start-Process -FilePath $stagedExe -WindowStyle Hidden -Environment @{METALENS_PROFILE_DIR=(Join-Path $repoRoot 'artifacts/qa200/smoke-profile')} -PassThru
     $smokeDeadline = [DateTime]::UtcNow.AddSeconds(10)
     while ([DateTime]::UtcNow -lt $smokeDeadline -and -not $smokeProcess.HasExited) {
         $smokeProcess.Refresh()
@@ -99,7 +114,9 @@ try {
     $smokeProcess.Dispose()
 
     New-Item -ItemType Directory -Path $releaseRoot | Out-Null
-    Move-Item -LiteralPath $stagingPath -Destination $appOutput
+    $stageFull = (Resolve-Path -LiteralPath $stagingPath).Path
+    if ([IO.Path]::GetDirectoryName($stageFull) -ne (Resolve-Path -LiteralPath $stagingParent).Path -or [IO.Path]::GetFileName($stageFull) -notmatch '^[a-f0-9]{32}$' -or [IO.Path]::GetDirectoryName($appOutput) -ne (Resolve-Path -LiteralPath $releaseRoot).Path) { throw 'Unexpected release target' }
+    Move-Item -LiteralPath $stageFull -Destination $appOutput
     $hash = (Get-FileHash -LiteralPath (Join-Path $appOutput $exeName) -Algorithm SHA256).Hash
     $buildInfo = @"
 # EXIF 全媒体元数据查看器 $releaseName
